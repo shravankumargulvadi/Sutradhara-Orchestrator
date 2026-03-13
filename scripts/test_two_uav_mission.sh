@@ -1,0 +1,185 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+WORKSPACE_DIR="/home/shravan/Projects/ros2_ws_ai"
+UNDERLAY_DIR="/home/shravan/Projects/ros2_ws"
+XRCE_WS_DIR="/home/shravan/Projects/px4_ros_uxrce_dds_ws"
+PX4_DIR="/home/shravan/Projects/PX4-Autopilot"
+PX4_BIN="$PX4_DIR/build/px4_sitl_default/bin/px4"
+
+FLIGHT_ALTITUDE_M="${FLIGHT_ALTITUDE_M:-8.0}"
+WAIT_FOR_TOPICS_SEC="${WAIT_FOR_TOPICS_SEC:-60}"
+WAIT_BEFORE_COMMANDS_SEC="${WAIT_BEFORE_COMMANDS_SEC:-20}"
+UAV2_MODEL_POSE="${UAV2_MODEL_POSE:-0,3}"
+PX4_AUTOSTART="${PX4_AUTOSTART:-4001}"
+LOG_ROOT="$WORKSPACE_DIR/test_logs/$(date +%Y%m%d_%H%M%S)"
+
+declare -a PIDS=()
+
+cleanup() {
+  local pid
+  echo
+  echo "Cleaning up background processes..."
+  for pid in "${PIDS[@]:-}"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      kill "$pid" 2>/dev/null || true
+    fi
+  done
+
+  sleep 2
+
+  for pid in "${PIDS[@]:-}"; do
+    if kill -0 "$pid" 2>/dev/null; then
+      kill -9 "$pid" 2>/dev/null || true
+    fi
+  done
+}
+
+trap cleanup EXIT INT TERM
+
+require_command() {
+  local cmd="$1"
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "Missing required command: $cmd" >&2
+    exit 1
+  fi
+}
+
+wait_for_topic() {
+  local topic="$1"
+  local timeout="$2"
+  local start_ts
+  start_ts="$(date +%s)"
+
+  while true; do
+    if ros2 topic list | grep -qx "$topic"; then
+      return 0
+    fi
+
+    if (( "$(date +%s)" - start_ts >= timeout )); then
+      echo "Timed out waiting for topic: $topic" >&2
+      return 1
+    fi
+
+    sleep 1
+  done
+}
+
+start_bg() {
+  local name="$1"
+  local logfile="$2"
+  shift 2
+
+  "$@" >"$logfile" 2>&1 &
+  PIDS+=("$!")
+  echo "Started $name (pid ${PIDS[-1]}), log: $logfile"
+}
+
+publish_task_command() {
+  local robot_id="$1"
+  local task_id="$2"
+  local command_id="$3"
+  local points_yaml="$4"
+
+  ros2 topic pub --once /orchestrator/task_command robot_control_interfaces/msg/TaskCommand "{
+    mission_id: 'mission_001',
+    task_id: '$task_id',
+    command_id: '$command_id',
+    robot_id: '$robot_id',
+    type: 0,
+    priority: 50,
+    task: {
+      task_type: 0,
+      target: {
+        frame: 'map',
+        kind: 1,
+        points: $points_yaml,
+        asset_id: ''
+      },
+      constraints: {
+        safety_radius_m: 0.0,
+        min_battery_pct_to_start: 0.0,
+        require_sensors: []
+      },
+      success_criteria: {
+        criteria: ['ASSET_VISITED']
+      }
+    }
+  }"
+}
+
+if pgrep -f "MicroXRCEAgent udp4 -p 8888" >/dev/null 2>&1; then
+  echo "MicroXRCEAgent already appears to be running. Stop existing test processes first." >&2
+  exit 1
+fi
+
+if pgrep -f "$PX4_BIN -i 1" >/dev/null 2>&1 || pgrep -f "$PX4_BIN -i 2" >/dev/null 2>&1; then
+  echo "PX4 SITL instance 1 or 2 is already running. Stop existing instances first." >&2
+  exit 1
+fi
+
+if [[ ! -x "$PX4_BIN" ]]; then
+  echo "Missing PX4 SITL binary at $PX4_BIN" >&2
+  echo "Build PX4 first, then rerun this script." >&2
+  exit 1
+fi
+
+require_command ros2
+require_command MicroXRCEAgent
+
+mkdir -p "$LOG_ROOT"
+
+source /opt/ros/jazzy/setup.bash
+source "$UNDERLAY_DIR/install/setup.bash"
+source "$WORKSPACE_DIR/install/setup.bash"
+source "$XRCE_WS_DIR/install/setup.bash"
+
+echo "Logs will be written under: $LOG_ROOT"
+echo "Using UAV2 model pose: $UAV2_MODEL_POSE"
+
+start_bg "MicroXRCEAgent" "$LOG_ROOT/xrce_agent.log" \
+  MicroXRCEAgent udp4 -p 8888
+
+start_bg "PX4 UAV 1" "$LOG_ROOT/px4_uav1.log" \
+  env PX4_SYS_AUTOSTART="$PX4_AUTOSTART" PX4_SIM_MODEL=gz_x500 "$PX4_BIN" -i 1
+
+sleep 8
+
+start_bg "PX4 UAV 2" "$LOG_ROOT/px4_uav2.log" \
+  env PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART="$PX4_AUTOSTART" PX4_GZ_MODEL_POSE="$UAV2_MODEL_POSE" PX4_SIM_MODEL=gz_x500 "$PX4_BIN" -i 2
+
+echo "Waiting for PX4 topics..."
+wait_for_topic "/px4_1/fmu/out/vehicle_status" "$WAIT_FOR_TOPICS_SEC"
+wait_for_topic "/px4_2/fmu/out/vehicle_status" "$WAIT_FOR_TOPICS_SEC"
+
+start_bg "uav_manager 1" "$LOG_ROOT/uav_manager_1.log" \
+  ros2 run robot_control uav_manager --ros-args -p drone_id:=1
+
+start_bg "uav_manager 2" "$LOG_ROOT/uav_manager_2.log" \
+  ros2 run robot_control uav_manager --ros-args -p drone_id:=2
+
+start_bg "mission_control_node" "$LOG_ROOT/mission_control.log" \
+  ros2 run robot_control mission_control_node --ros-args -p flight_altitude_m:="$FLIGHT_ALTITUDE_M"
+
+echo "Waiting ${WAIT_BEFORE_COMMANDS_SEC}s for estimator convergence before publishing commands..."
+sleep "$WAIT_BEFORE_COMMANDS_SEC"
+
+publish_task_command \
+  "px4_1" \
+  "task_uav1" \
+  "cmd_uav1_001" \
+  "[{x: 0.0, y: 0.0}, {x: 5.0, y: 0.0}, {x: 5.0, y: 5.0}, {x: 0.0, y: 5.0}]"
+
+publish_task_command \
+  "px4_2" \
+  "task_uav2" \
+  "cmd_uav2_001" \
+  "[{x: 0.0, y: 2.0}, {x: 5.0, y: 2.0}, {x: 5.0, y: 7.0}, {x: 0.0, y: 7.0}]"
+
+echo "Published commands for px4_1 and px4_2."
+echo "Press Ctrl-C to stop all managed processes."
+
+while true; do
+  sleep 5
+done
