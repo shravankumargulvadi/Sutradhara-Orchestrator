@@ -17,6 +17,7 @@ find_package(rclcpp REQUIRED)
 find_package(px4_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(robot_control_interfaces REQUIRED)
 
 # Add your executable
 add_executable(uav_manager src/uav_manager.cpp)
@@ -35,6 +36,7 @@ ament_target_dependencies(mission_control_node
   rclcpp 
   std_msgs 
   geometry_msgs
+  robot_control_interfaces
 )
 
 # Install the executable

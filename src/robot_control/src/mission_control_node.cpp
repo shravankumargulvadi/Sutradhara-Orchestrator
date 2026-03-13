@@ -1,70 +1,135 @@
-#include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/pose_array.hpp"
-#include <vector>
-#include <tuple>
+#include "rclcpp/rclcpp.hpp"
+#include "robot_control_interfaces/msg/task_command.hpp"
+#include "robot_control_interfaces/msg/task_target.hpp"
 
-class GCSNode : public rclcpp::Node
+#include <memory>
+#include <string>
+#include <unordered_map>
+
+class MissionControlNode : public rclcpp::Node
 {
 public:
-    GCSNode() : Node("mission_control_node")
+    MissionControlNode() : Node("mission_control_node")
     {
-        this->declare_parameter<std::vector<std::string>>("drone_ids", {""});
-        this->get_parameter("drone_ids", drone_ids_);
+        this->declare_parameter<double>("flight_altitude_m", 8.0);
+        flight_altitude_m_ = this->get_parameter("flight_altitude_m").as_double();
 
-        for (const auto &id : drone_ids_)
-        {
-            std::string topic = id + "/trajectory_upload";
-            auto pub = this->create_publisher<geometry_msgs::msg::PoseArray>(topic, 10);
-            publishers_.emplace_back(pub);
-        }
-
-        timer_ = this->create_wall_timer(std::chrono::seconds(2), std::bind(&GCSNode::send_trajectory, this));
+        task_command_sub_ =
+            this->create_subscription<robot_control_interfaces::msg::TaskCommand>(
+                "/orchestrator/task_command",
+                10,
+                std::bind(&MissionControlNode::task_command_callback, this, std::placeholders::_1));
     }
 
 private:
-    std::vector<std::string> drone_ids_;
-    std::vector<rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr> publishers_;
-    rclcpp::TimerBase::SharedPtr timer_;
-    bool sent_ = false;
+    using PoseArrayPublisher = rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr;
 
-    void send_trajectory()
+    std::unordered_map<std::string, PoseArrayPublisher> trajectory_publishers_;
+    rclcpp::Subscription<robot_control_interfaces::msg::TaskCommand>::SharedPtr task_command_sub_;
+    double flight_altitude_m_;
+
+    static std::string normalize_robot_id(const std::string &robot_id)
     {
-        if (sent_) return;
+        if (robot_id.empty()) {
+            return {};
+        }
 
-        geometry_msgs::msg::PoseArray traj;
-        traj.header.stamp = this->now();
-        traj.header.frame_id = "map";
+        if (robot_id.front() == '/') {
+            return robot_id;
+        }
 
-        std::vector<std::tuple<float, float, float>> waypoints = {
-            {0.0f, 0.0f, -8.0f},
-            {10.0f, 0.0f, -8.0f},
-            {10.0f, 10.0f, -8.0f},
-            {0.0f, 10.0f, -8.0f},
-            {0.0f, 0.0f, -8.0f}};
+        return "/" + robot_id;
+    }
 
-        for (auto &[x, y, z] : waypoints)
-        {
+    PoseArrayPublisher get_or_create_publisher(const std::string &robot_ns)
+    {
+        auto it = trajectory_publishers_.find(robot_ns);
+        if (it != trajectory_publishers_.end()) {
+            return it->second;
+        }
+
+        const std::string topic = robot_ns + "/trajectory_upload";
+        auto publisher = this->create_publisher<geometry_msgs::msg::PoseArray>(topic, 10);
+        trajectory_publishers_.emplace(robot_ns, publisher);
+        RCLCPP_INFO(this->get_logger(), "Created trajectory publisher for %s", topic.c_str());
+        return publisher;
+    }
+
+    geometry_msgs::msg::PoseArray build_pose_array(
+        const robot_control_interfaces::msg::TaskCommand &command) const
+    {
+        geometry_msgs::msg::PoseArray trajectory;
+        trajectory.header.stamp = this->now();
+        trajectory.header.frame_id = command.task.target.frame.empty() ? "map" : command.task.target.frame;
+
+        for (const auto &point : command.task.target.points) {
             geometry_msgs::msg::Pose pose;
-            pose.position.x = x;
-            pose.position.y = y;
-            pose.position.z = z;
-            traj.poses.push_back(pose);
+            pose.position.x = point.x;
+            pose.position.y = point.y;
+            pose.position.z = -flight_altitude_m_;
+            pose.orientation.w = 1.0;
+            trajectory.poses.push_back(pose);
         }
 
-        for (size_t i = 0; i < publishers_.size(); ++i)
-        {
-            RCLCPP_INFO(this->get_logger(), "Publishing trajectory to %s", drone_ids_[i].c_str());
-            publishers_[i]->publish(traj);
+        return trajectory;
+    }
+
+    void task_command_callback(const robot_control_interfaces::msg::TaskCommand::SharedPtr msg)
+    {
+        const std::string robot_ns = normalize_robot_id(msg->robot_id);
+        if (robot_ns.empty()) {
+            RCLCPP_WARN(this->get_logger(), "Received TaskCommand with empty robot_id");
+            return;
         }
 
-        sent_ = true;
+        if (msg->type != robot_control_interfaces::msg::TaskCommand::ASSIGN) {
+            RCLCPP_INFO(
+                this->get_logger(),
+                "Ignoring TaskCommand type %u for %s: not implemented yet",
+                msg->type,
+                robot_ns.c_str());
+            return;
+        }
+
+        const auto &target = msg->task.target;
+        if (target.kind != robot_control_interfaces::msg::TaskTarget::POINT &&
+            target.kind != robot_control_interfaces::msg::TaskTarget::REGION) {
+            RCLCPP_WARN(
+                this->get_logger(),
+                "Ignoring TaskCommand %s for %s: unsupported target kind %u",
+                msg->command_id.c_str(),
+                robot_ns.c_str(),
+                target.kind);
+            return;
+        }
+
+        if (target.points.empty()) {
+            RCLCPP_WARN(
+                this->get_logger(),
+                "Ignoring TaskCommand %s for %s: target contains no points",
+                msg->command_id.c_str(),
+                robot_ns.c_str());
+            return;
+        }
+
+        auto publisher = get_or_create_publisher(robot_ns);
+        auto trajectory = build_pose_array(*msg);
+        publisher->publish(trajectory);
+
+        RCLCPP_INFO(
+            this->get_logger(),
+            "Published %zu waypoint(s) for robot %s from task %s",
+            trajectory.poses.size(),
+            robot_ns.c_str(),
+            msg->task_id.c_str());
     }
 };
 
 int main(int argc, char **argv)
 {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_shared<GCSNode>());
+    rclcpp::spin(std::make_shared<MissionControlNode>());
     rclcpp::shutdown();
     return 0;
 }

@@ -9,6 +9,7 @@ This workspace is currently validated for:
 - ROS 2 Jazzy
 - Gazebo Harmonic
 - PX4 SITL with `gz_x500`
+- `robot_control_interfaces` custom message package
 - Micro XRCE-DDS bridge
 - `robot_control` nodes: `uav_manager` and `mission_control_node`
 
@@ -70,6 +71,79 @@ Expected executables:
 robot_control uav_manager
 robot_control mission_control_node
 ```
+
+Verify the interface package is visible:
+
+```bash
+cd /home/shravan/Projects/ros2_ws_ai
+source /opt/ros/jazzy/setup.bash
+source /home/shravan/Projects/ros2_ws/install/setup.bash
+source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
+ros2 interface package robot_control_interfaces
+```
+
+## Orchestrator interface
+
+`mission_control_node` now subscribes to:
+
+```bash
+/orchestrator/task_command
+```
+
+Message type:
+
+```bash
+robot_control_interfaces/msg/TaskCommand
+```
+
+Current implementation behavior:
+- supports `ASSIGN`
+- routes by `robot_id`
+- supports `POINT` and `REGION` targets
+- translates the target points into the existing `PoseArray` mission input for `uav_manager`
+- ignores unsupported command types for now
+
+Current non-goals for this step:
+- idempotency
+- `CANCEL`, `PAUSE`, `RESUME`, `UPDATE_PRIORITY` execution
+- `ASSET_ID` target handling
+
+## Automated two-UAV test
+
+You can run the full integration test with one command:
+
+```bash
+cd /home/shravan/Projects/ros2_ws_ai
+bash scripts/test_two_uav_mission.sh
+```
+
+The script:
+- starts `MicroXRCEAgent`
+- starts PX4 SITL instance `1`
+- starts PX4 SITL instance `2`
+- starts `uav_manager` for `drone_id:=1`
+- starts `uav_manager` for `drone_id:=2`
+- starts `mission_control_node`
+- publishes one `TaskCommand` for each UAV
+
+Logs are written under:
+
+```bash
+/home/shravan/Projects/ros2_ws_ai/test_logs/<timestamp>/
+```
+
+Useful environment overrides:
+
+```bash
+WAIT_BEFORE_COMMANDS_SEC=30 bash scripts/test_two_uav_mission.sh
+UAV2_MODEL_POSE="0,5" bash scripts/test_two_uav_mission.sh
+FLIGHT_ALTITUDE_M=10.0 bash scripts/test_two_uav_mission.sh
+```
+
+The script assumes:
+- the workspace is already built
+- the PX4 SITL binary already exists at `/home/shravan/Projects/PX4-Autopilot/build/px4_sitl_default/bin/px4`
+- no other `MicroXRCEAgent` or PX4 instance `1` / `2` is already running
 
 ## Runtime bring-up
 
@@ -177,15 +251,58 @@ source /opt/ros/jazzy/setup.bash
 source /home/shravan/Projects/ros2_ws/install/setup.bash
 source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
 
-ros2 run robot_control mission_control_node --ros-args -p drone_ids:="['/px4_0']"
+ros2 run robot_control mission_control_node
 ```
 
 Important:
-- The executable was renamed to `mission_control_node`
-- The parameter is still named `drone_ids` in code
-- The expected value is the application namespace string, for example `'/px4_0'`
+- `mission_control_node` no longer publishes a hardcoded mission on startup
+- it waits for `TaskCommand` messages on `/orchestrator/task_command`
+- it uses `robot_id` from the command to select the target robot namespace
 
-`mission_control_node` currently publishes the mission once after startup. It does not continuously republish.
+Example command for a single UAV:
+
+```bash
+cd /home/shravan/Projects/ros2_ws_ai
+source /opt/ros/jazzy/setup.bash
+source /home/shravan/Projects/ros2_ws/install/setup.bash
+source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
+
+ros2 topic pub --once /orchestrator/task_command robot_control_interfaces/msg/TaskCommand "{
+  mission_id: 'mission_001',
+  task_id: 'task_001',
+  command_id: 'cmd_001',
+  robot_id: 'px4_0',
+  type: 0,
+  priority: 50,
+  task: {
+    task_type: 0,
+    target: {
+      frame: 'map',
+      kind: 1,
+      points: [
+        {x: 0.0, y: 0.0},
+        {x: 5.0, y: 0.0},
+        {x: 5.0, y: 5.0},
+        {x: 0.0, y: 5.0}
+      ],
+      asset_id: ''
+    },
+    constraints: {
+      safety_radius_m: 0.0,
+      min_battery_pct_to_start: 0.0,
+      require_sensors: []
+    },
+    success_criteria: {
+      criteria: ['ASSET_VISITED']
+    }
+  }
+}"
+```
+
+Enum values used above:
+- `type: 0` means `ASSIGN`
+- `task_type: 0` means `INSPECT`
+- `target.kind: 1` means `REGION`
 
 ## What each node does
 
@@ -199,8 +316,11 @@ Important:
   `WAITING -> TAKING_OFF -> HOVERING -> FOLLOWING_TRAJECTORY`
 
 `mission_control_node`:
-- publishes a `geometry_msgs/msg/PoseArray` mission
-- acts as a minimal base station / mission trigger
+- subscribes to `/orchestrator/task_command`
+- parses the structured orchestrator command
+- routes by `robot_id`
+- translates supported commands into `geometry_msgs/msg/PoseArray`
+- publishes to `/<robot_id>/trajectory_upload`
 
 ## Full command sequence that should fly the drone
 
@@ -243,14 +363,46 @@ source /opt/ros/jazzy/setup.bash
 source /home/shravan/Projects/ros2_ws/install/setup.bash
 source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
 
-ros2 topic pub --once /px4_0/trajectory_upload geometry_msgs/msg/PoseArray "{
-  header: {frame_id: 'map'},
-  poses: [
-    {position: {x: 0.0, y: 0.0, z: -8.0}, orientation: {w: 1.0}},
-    {position: {x: 5.0, y: 0.0, z: -8.0}, orientation: {w: 1.0}},
-    {position: {x: 5.0, y: 5.0, z: -8.0}, orientation: {w: 1.0}},
-    {position: {x: 0.0, y: 5.0, z: -8.0}, orientation: {w: 1.0}}
-  ]
+ros2 run robot_control mission_control_node
+```
+
+Terminal E:
+
+```bash
+cd /home/shravan/Projects/ros2_ws_ai
+source /opt/ros/jazzy/setup.bash
+source /home/shravan/Projects/ros2_ws/install/setup.bash
+source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
+
+ros2 topic pub --once /orchestrator/task_command robot_control_interfaces/msg/TaskCommand "{
+  mission_id: 'mission_001',
+  task_id: 'task_001',
+  command_id: 'cmd_001',
+  robot_id: 'px4_0',
+  type: 0,
+  priority: 50,
+  task: {
+    task_type: 0,
+    target: {
+      frame: 'map',
+      kind: 1,
+      points: [
+        {x: 0.0, y: 0.0},
+        {x: 5.0, y: 0.0},
+        {x: 5.0, y: 5.0},
+        {x: 0.0, y: 5.0}
+      ],
+      asset_id: ''
+    },
+    constraints: {
+      safety_radius_m: 0.0,
+      min_battery_pct_to_start: 0.0,
+      require_sensors: []
+    },
+    success_criteria: {
+      criteria: ['ASSET_VISITED']
+    }
+  }
 }"
 ```
 
@@ -338,9 +490,21 @@ source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
 ros2 run robot_control mission_control_node --ros-args -p drone_ids:="['/px4_1','/px4_2']"
 ```
 
-This will publish the same waypoint mission once to both:
-- `/px4_1/trajectory_upload`
-- `/px4_2/trajectory_upload`
+This command is now outdated for the current implementation.
+
+For two UAVs, run `mission_control_node` once:
+
+```bash
+cd /home/shravan/Projects/ros2_ws_ai
+source /opt/ros/jazzy/setup.bash
+source /home/shravan/Projects/ros2_ws/install/setup.bash
+source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
+ros2 run robot_control mission_control_node
+```
+
+Then publish one `TaskCommand` per robot:
+- `robot_id: 'px4_1'`
+- `robot_id: 'px4_2'`
 
 ### Manual per-UAV mission upload
 
@@ -416,8 +580,7 @@ You should see topics for both:
   This is usually caused by stale in-source build artifacts. The dependency script now cleans them.
 
 - `mission_control_node` does not trigger the UAV:
-  Make sure `uav_manager` is already running and the parameter is exactly:
-  `-p drone_ids:="['/px4_0']"`
+  Make sure `uav_manager` is already running and you published a `TaskCommand` to `/orchestrator/task_command` with the correct `robot_id`.
 
 ## Standalone later
 
