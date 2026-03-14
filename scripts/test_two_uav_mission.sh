@@ -7,6 +7,7 @@ UNDERLAY_DIR="/home/shravan/Projects/ros2_ws"
 XRCE_WS_DIR="/home/shravan/Projects/px4_ros_uxrce_dds_ws"
 PX4_DIR="/home/shravan/Projects/PX4-Autopilot"
 PX4_BIN="$PX4_DIR/build/px4_sitl_default/bin/px4"
+MICRO_XRCE_AGENT_BIN_DEFAULT="$XRCE_WS_DIR/install/microxrcedds_agent/bin/MicroXRCEAgent"
 
 FLIGHT_ALTITUDE_M="${FLIGHT_ALTITUDE_M:-8.0}"
 WAIT_FOR_TOPICS_SEC="${WAIT_FOR_TOPICS_SEC:-60}"
@@ -16,6 +17,13 @@ PX4_AUTOSTART="${PX4_AUTOSTART:-4001}"
 LOG_ROOT="$WORKSPACE_DIR/test_logs/$(date +%Y%m%d_%H%M%S)"
 
 declare -a PIDS=()
+
+source_setup() {
+  set +u
+  # shellcheck disable=SC1090
+  source "$1"
+  set -u
+}
 
 cleanup() {
   local pid
@@ -38,12 +46,18 @@ cleanup() {
 
 trap cleanup EXIT INT TERM
 
-require_command() {
-  local cmd="$1"
-  if ! command -v "$cmd" >/dev/null 2>&1; then
-    echo "Missing required command: $cmd" >&2
-    exit 1
+resolve_micro_xrce_agent() {
+  if [[ -x "$MICRO_XRCE_AGENT_BIN_DEFAULT" ]]; then
+    echo "$MICRO_XRCE_AGENT_BIN_DEFAULT"
+    return 0
   fi
+
+  if command -v MicroXRCEAgent >/dev/null 2>&1; then
+    command -v MicroXRCEAgent
+    return 0
+  fi
+
+  return 1
 }
 
 wait_for_topic() {
@@ -125,21 +139,29 @@ if [[ ! -x "$PX4_BIN" ]]; then
   exit 1
 fi
 
-require_command ros2
-require_command MicroXRCEAgent
+if ! command -v ros2 >/dev/null 2>&1; then
+  echo "Missing required command: ros2" >&2
+  exit 1
+fi
 
 mkdir -p "$LOG_ROOT"
 
-source /opt/ros/jazzy/setup.bash
-source "$UNDERLAY_DIR/install/setup.bash"
-source "$WORKSPACE_DIR/install/setup.bash"
-source "$XRCE_WS_DIR/install/setup.bash"
+source_setup /opt/ros/jazzy/setup.bash
+source_setup "$UNDERLAY_DIR/install/setup.bash"
+source_setup "$WORKSPACE_DIR/install/setup.bash"
+source_setup "$XRCE_WS_DIR/install/setup.bash"
+
+if ! MICRO_XRCE_AGENT_BIN="$(resolve_micro_xrce_agent)"; then
+  echo "Could not find MicroXRCEAgent in $MICRO_XRCE_AGENT_BIN_DEFAULT or on PATH" >&2
+  exit 1
+fi
 
 echo "Logs will be written under: $LOG_ROOT"
 echo "Using UAV2 model pose: $UAV2_MODEL_POSE"
+echo "Using MicroXRCEAgent binary: $MICRO_XRCE_AGENT_BIN"
 
 start_bg "MicroXRCEAgent" "$LOG_ROOT/xrce_agent.log" \
-  MicroXRCEAgent udp4 -p 8888
+  "$MICRO_XRCE_AGENT_BIN" udp4 -p 8888
 
 start_bg "PX4 UAV 1" "$LOG_ROOT/px4_uav1.log" \
   env PX4_SYS_AUTOSTART="$PX4_AUTOSTART" PX4_SIM_MODEL=gz_x500 "$PX4_BIN" -i 1
