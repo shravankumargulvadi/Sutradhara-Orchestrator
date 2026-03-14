@@ -1,0 +1,3 @@
+float32 safety_radius_m
+float32 min_battery_pct_to_start
+string[] require_sensors
