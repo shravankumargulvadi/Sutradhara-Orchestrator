@@ -2,3 +2,14 @@ build/
 install/
 log/
 test_logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+.env
+uv.lock
+
+# Audit Logs
+audit_trail.jsonl
