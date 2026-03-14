@@ -1,0 +1,20 @@
+llm:
+  main_model: "ollama/qwen3:1.7b" #"gemini/gemini-2.0-flash"
+  skill_model: "ollama/qwen3:1.7b"
+  gemini_api_key: "${GEMINI_API_KEY}"
+
+token_budget:
+  mission_total_max: 5000
+  models:
+    gemini: 2000
+    qwen3: 3000
+
+simulation:
+  heartbeat_timeout_s: 5.0
+  update_rate_hz: 1.0
+
+discovery:
+  skills_directory: "./skills"
+  
+audit:
+  log_file: "audit_trail.jsonl"
