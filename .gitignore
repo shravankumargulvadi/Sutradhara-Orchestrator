@@ -13,3 +13,8 @@ uv.lock
 
 # Audit Logs
 audit_trail.jsonl
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
