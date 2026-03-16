@@ -2,6 +2,11 @@
 
 This workspace contains the new `robot_control` package which has a split robot-specific `manager` that runs onboard the robot and the `mission-control` subsystem which runs off-board and interfaces with the `AI-Agent-Orch`
 
+Current architecture note:
+- `robot_control` and `robot_control_interfaces` are ROS packages built with `colcon`
+- `sutradhara_orchestrator` is still a Python package managed with `uv`
+- a thin ROS bridge now wraps the orchestrator so it can talk to the ROS graph
+
 ## Scope
 
 This workspace is currently validated for:
@@ -30,6 +35,22 @@ source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
 ```
 
 If you skip the `ros2_ws` underlay, `robot_control` will not resolve `px4_msgs`.
+
+## Build model
+
+This workspace currently uses two build systems:
+
+- `colcon` builds the ROS packages:
+  - `robot_control`
+  - `robot_control_interfaces`
+- `uv` manages the Python environment for:
+  - `sutradhara_orchestrator`
+
+That is why both of these are true at the same time:
+- you must `colcon build` the ROS workspace so the ROS messages/nodes exist
+- you must run the orchestrator through `uv run ...` so its Python dependencies are available
+
+This is temporary. The long-term plan is to convert the orchestrator into a fully ROS-native package/runtime.
 
 ## Install prerequisites
 
@@ -82,6 +103,15 @@ source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
 ros2 interface package robot_control_interfaces
 ```
 
+## TODO
+
+- Convert `sutradhara_orchestrator` from a `uv`-managed Python package with a ROS bridge into a first-class ROS package/runtime
+- Replace the current mixed `uv` + `colcon` startup flow with a unified ROS-native launch path
+- Add real robot feedback topics for:
+  - `TaskAck`
+  - `TaskUpdate`
+  - later richer mission state feedback
+
 ## Orchestrator interface
 
 `mission_control_node` now subscribes to:
@@ -96,6 +126,24 @@ Message type:
 robot_control_interfaces/msg/TaskCommand
 ```
 
+The orchestrator ROS bridge currently uses these ROS topics:
+
+- `/orchestrator/mission_input`
+  - type: `std_msgs/msg/String`
+  - purpose: mission text into the orchestrator
+- `/orchestrator/task_command`
+  - type: `robot_control_interfaces/msg/TaskCommand`
+  - purpose: orchestrator output to mission control
+- `/orchestrator/capability_profile`
+  - type: `robot_control_interfaces/msg/CapabilityProfile`
+  - purpose: robot capability advertisements into the orchestrator
+- `/orchestrator/robot_state`
+  - type: `robot_control_interfaces/msg/RobotState`
+  - purpose: robot heartbeat/state into the orchestrator
+- `/orchestrator/mission_result`
+  - type: `std_msgs/msg/String`
+  - purpose: JSON-encoded mission summary/status out of the orchestrator
+
 Current implementation behavior:
 - supports `ASSIGN`
 - routes by `robot_id`
@@ -107,6 +155,35 @@ Current non-goals for this step:
 - idempotency
 - `CANCEL`, `PAUSE`, `RESUME`, `UPDATE_PRIORITY` execution
 - `ASSET_ID` target handling
+
+## Running the orchestrator ROS bridge
+
+The orchestrator is not a ROS package yet. It runs as a Python package, but once started it behaves like a ROS node through the bridge wrapper.
+
+Run it with:
+
+```bash
+cd /home/shravan/Projects/ros2_ws_ai
+source /opt/ros/jazzy/setup.bash
+source /home/shravan/Projects/ros2_ws/install/setup.bash
+source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
+cd src/sutradhara_orchestrator
+uv run python -m sutradhara_orchestrator.cli ros-bridge
+```
+
+Send a mission into it with:
+
+```bash
+ros2 topic pub --once /orchestrator/mission_input std_msgs/msg/String "{data: 'Inspect the area around the two drones and report anomalies'}"
+```
+
+What the bridge does:
+- receives mission text on ROS
+- feeds it into `AgenticAI`
+- receives internal broker `task_command` events
+- republishes them as ROS `TaskCommand`
+- receives ROS `CapabilityProfile` and `RobotState`
+- feeds them into the orchestrator world-state manager
 
 ## Automated two-UAV test
 
@@ -145,6 +222,30 @@ The script assumes:
 - the PX4 SITL binary already exists at `/home/shravan/Projects/PX4-Autopilot/build/px4_sitl_default/bin/px4`
 - no other `MicroXRCEAgent` or PX4 instance `1` / `2` is already running
 
+This script currently exercises the ROS robot-control path only.
+It does not start the orchestrator ROS bridge.
+
+## Bring-up only script
+
+If you want the robot stack up without auto-publishing any commands, use:
+
+```bash
+cd /home/shravan/Projects/ros2_ws_ai
+bash scripts/bringup_two_uav_stack.sh
+```
+
+This script starts only:
+- `MicroXRCEAgent`
+- PX4 SITL instance `1`
+- PX4 SITL instance `2`
+- `uav_manager` for `drone_id:=1`
+- `uav_manager` for `drone_id:=2`
+- `mission_control_node`
+
+It does not publish any `TaskCommand`.
+
+This is the recommended script when testing the orchestrator ROS bridge.
+
 ## Runtime bring-up
 
 Use three terminals.
@@ -181,6 +282,16 @@ ros2 run robot_control uav_manager --ros-args \
   -r /px4_0/fmu/out/vehicle_status:=/fmu/out/vehicle_status \
   -r /px4_0/fmu/out/vehicle_local_position:=/fmu/out/vehicle_local_position
 ```
+
+To test the orchestrator against the real robot stack, you still need the whole robot-control runtime up:
+
+- `MicroXRCEAgent`
+- PX4 SITL / Gazebo
+- `uav_manager` instances
+- `mission_control_node`
+- the orchestrator ROS bridge
+
+The C++/Python split is not a problem by itself. ROS messages are the contract between them, so as long as both sides agree on the interface package and the topics are sourced correctly, C++ nodes and Python nodes interoperate normally.
 
 ## Why the remaps are required
 
