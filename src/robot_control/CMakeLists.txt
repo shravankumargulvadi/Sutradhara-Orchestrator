@@ -28,6 +28,7 @@ ament_target_dependencies(uav_manager
   px4_msgs
   geometry_msgs
   std_msgs
+  robot_control_interfaces
 )
 
 add_executable(mission_control_node src/mission_control_node.cpp)

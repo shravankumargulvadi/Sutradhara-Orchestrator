@@ -10,6 +10,8 @@ find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
   "msg/Point2D.msg"
+  "msg/CapabilityProfile.msg"
+  "msg/RobotState.msg"
   "msg/TaskConstraints.msg"
   "msg/TaskSuccessCriteria.msg"
   "msg/TaskTarget.msg"

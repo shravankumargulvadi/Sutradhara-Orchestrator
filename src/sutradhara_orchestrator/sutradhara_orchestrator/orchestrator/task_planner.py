@@ -78,14 +78,18 @@ class TaskPlanner:
 
             # Parse tasks
             content = response.choices[0].message.content
-            logger.debug(f"Raw LLM response: {content}")
+            logger.info("Raw planner LLM response: %s", content)
             
             data = json.loads(content)
             reasoning = data.get("reasoning", "No reasoning provided.")
             task_list_raw = data.get("tasks", [])
 
             if not isinstance(task_list_raw, list):
-                logger.warning(f"Expected list of tasks, got {type(task_list_raw)}")
+                logger.warning(
+                    "Planner response 'tasks' field is not a list. Type=%s Content=%s",
+                    type(task_list_raw),
+                    task_list_raw,
+                )
                 return [], reasoning
 
             tasks = []
