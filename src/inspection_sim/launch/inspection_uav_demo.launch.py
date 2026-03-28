@@ -4,7 +4,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, SetEnvironmentVariable, TimerAction
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import EnvironmentVariable, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 
 
@@ -12,29 +12,53 @@ def generate_launch_description() -> LaunchDescription:
     inspection_share = Path(get_package_share_directory("inspection_sim"))
     world_path = inspection_share / "worlds" / "solar_farm_world.sdf"
     inspection_models_path = inspection_share / "models"
+    world_name = "solar_farm_demo"
 
     default_px4_dir = "/home/shravan/Projects/PX4-Autopilot"
+    default_underlay_install = "/home/shravan/Projects/ros2_ws/install"
     default_xrce_agent = (
         "/home/shravan/Projects/px4_ros_uxrce_dds_ws/install/"
         "microxrcedds_agent/bin/MicroXRCEAgent"
     )
+    default_xrce_agent_lib_dir = (
+        "/home/shravan/Projects/px4_ros_uxrce_dds_ws/install/"
+        "microxrcedds_agent/lib"
+    )
+    default_px4_models_path = f"{default_px4_dir}/Tools/simulation/gz/models"
+    default_px4_worlds_path = f"{default_px4_dir}/Tools/simulation/gz/worlds"
 
     existing_resource_path = os.environ.get("GZ_SIM_RESOURCE_PATH", "")
-    resource_path = (
-        str(inspection_models_path)
-        if not existing_resource_path
-        else f"{inspection_models_path}:{existing_resource_path}"
-    )
+    resource_entries = [
+        str(inspection_models_path),
+        default_px4_models_path,
+        default_px4_worlds_path,
+    ]
+    if existing_resource_path:
+        resource_entries.append(existing_resource_path)
+    resource_path = ":".join(resource_entries)
 
     px4_dir = LaunchConfiguration("px4_dir")
     px4_bin = LaunchConfiguration("px4_bin")
+    px4_gz_models_path = LaunchConfiguration("px4_gz_models_path")
+    px4_gz_worlds_path = LaunchConfiguration("px4_gz_worlds_path")
+    underlay_install = LaunchConfiguration("underlay_install")
     micro_xrce_agent_bin = LaunchConfiguration("micro_xrce_agent_bin")
+    micro_xrce_agent_lib_dir = LaunchConfiguration("micro_xrce_agent_lib_dir")
     px4_autostart = LaunchConfiguration("px4_autostart")
     flight_altitude_m = LaunchConfiguration("flight_altitude_m")
     drone_id = LaunchConfiguration("drone_id")
     gz_model_pose = LaunchConfiguration("gz_model_pose")
     wait_before_px4_s = LaunchConfiguration("wait_before_px4_s")
     wait_before_ros_nodes_s = LaunchConfiguration("wait_before_ros_nodes_s")
+    underlay_lib_path = PathJoinSubstitution([underlay_install, "px4_msgs", "lib"])
+    merged_ld_library_path = [
+        underlay_lib_path,
+        ":",
+        micro_xrce_agent_lib_dir,
+        ":",
+        EnvironmentVariable("LD_LIBRARY_PATH", default_value=""),
+    ]
+    merged_ament_prefix_path = [underlay_install, ":", EnvironmentVariable("AMENT_PREFIX_PATH", default_value="")]
 
     return LaunchDescription(
         [
@@ -43,14 +67,20 @@ def generate_launch_description() -> LaunchDescription:
                 "px4_bin",
                 default_value=f"{default_px4_dir}/build/px4_sitl_default/bin/px4",
             ),
+            DeclareLaunchArgument("px4_gz_models_path", default_value=default_px4_models_path),
+            DeclareLaunchArgument("px4_gz_worlds_path", default_value=default_px4_worlds_path),
+            DeclareLaunchArgument("underlay_install", default_value=default_underlay_install),
             DeclareLaunchArgument("micro_xrce_agent_bin", default_value=default_xrce_agent),
+            DeclareLaunchArgument("micro_xrce_agent_lib_dir", default_value=default_xrce_agent_lib_dir),
             DeclareLaunchArgument("px4_autostart", default_value="4001"),
             DeclareLaunchArgument("flight_altitude_m", default_value="8.0"),
             DeclareLaunchArgument("drone_id", default_value="1"),
-            DeclareLaunchArgument("gz_model_pose", default_value="0,0,0.2,0,0,0"),
+            DeclareLaunchArgument("gz_model_pose", default_value="0,0,1.0,0,0,0"),
             DeclareLaunchArgument("wait_before_px4_s", default_value="2.0"),
             DeclareLaunchArgument("wait_before_ros_nodes_s", default_value="10.0"),
             SetEnvironmentVariable("GZ_SIM_RESOURCE_PATH", resource_path),
+            SetEnvironmentVariable("LD_LIBRARY_PATH", merged_ld_library_path),
+            SetEnvironmentVariable("AMENT_PREFIX_PATH", merged_ament_prefix_path),
             ExecuteProcess(
                 cmd=["gz", "sim", "-r", str(world_path)],
                 output="screen",
@@ -69,8 +99,11 @@ def generate_launch_description() -> LaunchDescription:
                         additional_env={
                             "PX4_GZ_STANDALONE": "1",
                             "PX4_SYS_AUTOSTART": px4_autostart,
-                            "PX4_SIM_MODEL": "gz_x500",
-                            "PX4_GZ_MODEL_POSE": gz_model_pose,
+                            "PX4_GZ_WORLD": world_name,
+                            "PX4_GZ_MODEL_NAME": "x500_1",
+                            "PX4_GZ_MODELS": px4_gz_models_path,
+                            "PX4_GZ_WORLDS": px4_gz_worlds_path,
+                            "GZ_SIM_RESOURCE_PATH": resource_path,
                         },
                     )
                 ],
