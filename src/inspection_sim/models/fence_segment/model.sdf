@@ -1,0 +1,72 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <model name="fence_segment">
+    <static>true</static>
+    <link name="fence_link">
+      <collision name="panel_collision">
+        <pose>0 0 1.0 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>28 0.08 2.0</size>
+          </box>
+        </geometry>
+      </collision>
+
+      <visual name="mesh_panel">
+        <pose>0 0 1.0 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>28 0.03 2.0</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.48 0.50 0.52 0.45</ambient>
+          <diffuse>0.58 0.60 0.62 0.45</diffuse>
+        </material>
+        <transparency>0.45</transparency>
+      </visual>
+
+      <visual name="post_left">
+        <pose>-14 0 1.2 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.08</radius>
+            <length>2.4</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.44 0.45 0.47 1</ambient>
+          <diffuse>0.54 0.55 0.57 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name="post_center">
+        <pose>0 0 1.2 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.08</radius>
+            <length>2.4</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.44 0.45 0.47 1</ambient>
+          <diffuse>0.54 0.55 0.57 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name="post_right">
+        <pose>14 0 1.2 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.08</radius>
+            <length>2.4</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.44 0.45 0.47 1</ambient>
+          <diffuse>0.54 0.55 0.57 1</diffuse>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

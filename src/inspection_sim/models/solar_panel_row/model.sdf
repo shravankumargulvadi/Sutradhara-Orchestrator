@@ -1,0 +1,98 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <model name="solar_panel_row">
+    <static>true</static>
+    <link name="row_link">
+      <collision name="frame_collision">
+        <pose>0 0 0.6 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>20 2.4 1.2</size>
+          </box>
+        </geometry>
+      </collision>
+
+      <visual name="panel_surface">
+        <pose>0 0 1.55 0 -0.48 0</pose>
+        <geometry>
+          <box>
+            <size>20 3.2 0.08</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.08 0.16 0.26 1</ambient>
+          <diffuse>0.10 0.22 0.36 1</diffuse>
+          <specular>0.18 0.18 0.18 1</specular>
+        </material>
+      </visual>
+
+      <visual name="frame_beam_left">
+        <pose>0 -1.1 1.05 0 -0.48 0</pose>
+        <geometry>
+          <box>
+            <size>20 0.12 0.12</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.55 0.55 0.57 1</ambient>
+          <diffuse>0.66 0.66 0.68 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name="frame_beam_right">
+        <pose>0 1.1 1.05 0 -0.48 0</pose>
+        <geometry>
+          <box>
+            <size>20 0.12 0.12</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.55 0.55 0.57 1</ambient>
+          <diffuse>0.66 0.66 0.68 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name="support_1">
+        <pose>-7 0 0.75 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.08</radius>
+            <length>1.5</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.50 0.50 0.50 1</ambient>
+          <diffuse>0.60 0.60 0.60 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name="support_2">
+        <pose>0 0 0.75 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.08</radius>
+            <length>1.5</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.50 0.50 0.50 1</ambient>
+          <diffuse>0.60 0.60 0.60 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name="support_3">
+        <pose>7 0 0.75 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.08</radius>
+            <length>1.5</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.50 0.50 0.50 1</ambient>
+          <diffuse>0.60 0.60 0.60 1</diffuse>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

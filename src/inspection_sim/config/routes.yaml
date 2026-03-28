@@ -1,0 +1,34 @@
+routes:
+  - route_id: perimeter_overview
+    description: "Clockwise perimeter overview of the solar farm."
+    robot_type: uav
+    nominal_altitude_m: 18.0
+    assets_covered:
+      - north_perimeter_gate
+      - battery_container_01
+      - weather_station_01
+    waypoints:
+      - {x: -58.0, y: -52.0, z: 18.0}
+      - {x: -58.0, y: 52.0, z: 18.0}
+      - {x: 58.0, y: 52.0, z: 18.0}
+      - {x: 58.0, y: -52.0, z: 18.0}
+      - {x: -58.0, y: -52.0, z: 18.0}
+
+  - route_id: critical_assets_inspection
+    description: "Focus route for inverter, battery, and anomaly row inspection."
+    robot_type: uav
+    nominal_altitude_m: 10.0
+    assets_covered:
+      - row_06
+      - inverter_01
+      - inverter_02
+      - battery_container_01
+    waypoints:
+      - {x: -38.0, y: 18.0, z: 12.0}
+      - {x: -22.0, y: 18.0, z: 12.0}
+      - {x: 40.0, y: 8.0, z: 10.0}
+      - {x: 52.0, y: 0.0, z: 8.0}
+      - {x: 40.0, y: -12.0, z: 10.0}
+      - {x: 52.0, y: -20.0, z: 8.0}
+      - {x: 40.0, y: 30.0, z: 9.0}
+      - {x: 57.0, y: 30.0, z: 7.0}
