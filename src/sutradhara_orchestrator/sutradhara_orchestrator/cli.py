@@ -6,6 +6,7 @@ import click
 import logging
 import threading
 from .orchestrator.agentic_ai import AgenticAI
+from .ros_node import main as ros_bridge_main
 from .pubsub.broker import broker
 from .simulation.robot import SimulatedUAV, SimulatedUGV
 from .messages.mission_input import MissionInput
@@ -83,6 +84,7 @@ def launch(uavs, ugvs, skills):
     finally:
         for r in robots:
             r.stop()
+        orchestrator.shutdown()
 
 @cli.command()
 @click.argument("description")
@@ -134,6 +136,11 @@ def inject_fault(robot_id, fault):
     """Inject a fault into a robot (simplified for simulation)."""
     logger.info(f"Injecting fault {fault} into {robot_id}")
     broker.publish("fault_injection", {"robot_id": robot_id, "fault": fault})
+
+@cli.command("ros-bridge")
+def ros_bridge():
+    """Run the ROS-facing orchestrator bridge node."""
+    ros_bridge_main()
 
 if __name__ == "__main__":
     cli()

@@ -4,6 +4,8 @@
 #include "px4_msgs/msg/offboard_control_mode.hpp"
 #include "px4_msgs/msg/vehicle_local_position.hpp"
 #include "px4_msgs/msg/vehicle_status.hpp"
+#include "robot_control_interfaces/msg/capability_profile.hpp"
+#include "robot_control_interfaces/msg/robot_state.hpp"
 #include "geometry_msgs/msg/pose_array.hpp"
 #include <chrono>
 #include <cmath>
@@ -23,7 +25,8 @@ public:
         this->declare_parameter<int>("drone_id", 0);
         this->get_parameter("drone_id", drone_id_);
 
-        std::string ns = "/px4_" + std::to_string(drone_id_);
+        robot_id_ = "px4_" + std::to_string(drone_id_);
+        std::string ns = "/" + robot_id_;
 
         std::string offboard_topic = ns + "/fmu/in/offboard_control_mode";
         std::string trajectory_topic = ns + "/fmu/in/trajectory_setpoint";
@@ -44,6 +47,10 @@ public:
         offboard_control_mode_pub_ = this->create_publisher<px4_msgs::msg::OffboardControlMode>(offboard_topic, 10);
         trajectory_setpoint_pub_ = this->create_publisher<px4_msgs::msg::TrajectorySetpoint>(trajectory_topic, 10);
         vehicle_command_pub_ = this->create_publisher<px4_msgs::msg::VehicleCommand>(vehicle_cmd_topic, 10);
+        capability_profile_pub_ = this->create_publisher<robot_control_interfaces::msg::CapabilityProfile>(
+            "/orchestrator/capability_profile", 10);
+        robot_state_pub_ = this->create_publisher<robot_control_interfaces::msg::RobotState>(
+            "/orchestrator/robot_state", 10);
 
         rclcpp::QoS qos_profile{rclcpp::SensorDataQoS()};
 
@@ -59,15 +66,25 @@ public:
             traj_upload_topic, 10, std::bind(&UavManager::trajectory_callback, this, std::placeholders::_1));
 
         timer_ = this->create_wall_timer(50ms, std::bind(&UavManager::control_loop, this));
+        robot_state_timer_ = this->create_wall_timer(1s, std::bind(&UavManager::publish_robot_state, this));
+        capability_profile_timer_ =
+            this->create_wall_timer(2s, std::bind(&UavManager::publish_capability_profile, this));
+
+        publish_capability_profile();
     }
 
 private:
     int drone_id_;
+    std::string robot_id_;
     rclcpp::TimerBase::SharedPtr timer_;
+    rclcpp::TimerBase::SharedPtr robot_state_timer_;
+    rclcpp::TimerBase::SharedPtr capability_profile_timer_;
 
     rclcpp::Publisher<px4_msgs::msg::OffboardControlMode>::SharedPtr offboard_control_mode_pub_;
     rclcpp::Publisher<px4_msgs::msg::TrajectorySetpoint>::SharedPtr trajectory_setpoint_pub_;
     rclcpp::Publisher<px4_msgs::msg::VehicleCommand>::SharedPtr vehicle_command_pub_;
+    rclcpp::Publisher<robot_control_interfaces::msg::CapabilityProfile>::SharedPtr capability_profile_pub_;
+    rclcpp::Publisher<robot_control_interfaces::msg::RobotState>::SharedPtr robot_state_pub_;
 
     rclcpp::Subscription<px4_msgs::msg::VehicleStatus>::SharedPtr vehicle_status_sub_;
     rclcpp::Subscription<px4_msgs::msg::VehicleLocalPosition>::SharedPtr local_position_sub_;
@@ -80,9 +97,51 @@ private:
     bool waypoint_reached_ = false;
     uint64_t offboard_setpoint_counter_ = 0;
     std::array<float, 3> next_waypoint_ = {0.0, 0.0, -8.0};
-
-    float posX_, posY_, posZ_;
+    int32_t heartbeat_counter_ = 0;
+    float posX_ = 0.0f;
+    float posY_ = 0.0f;
+    float posZ_ = 0.0f;
+    float velocity_mps_ = 0.0f;
     const float waypoint_accuracy_ = 0.5;
+
+    void publish_capability_profile()
+    {
+        robot_control_interfaces::msg::CapabilityProfile msg;
+        msg.robot_id = robot_id_;
+        msg.platform = robot_control_interfaces::msg::CapabilityProfile::PLATFORM_UAV;
+        msg.max_speed_mps = 15.0f;
+        msg.max_run_time_s = 1800.0f;
+        msg.sensors = {"RGB", "THERMAL"};
+        msg.task_types_supported = {
+            robot_control_interfaces::msg::CapabilityProfile::TASK_INSPECT,
+            robot_control_interfaces::msg::CapabilityProfile::TASK_VERIFY,
+            robot_control_interfaces::msg::CapabilityProfile::TASK_PATROL,
+            robot_control_interfaces::msg::CapabilityProfile::TASK_RETURN_HOME
+        };
+        capability_profile_pub_->publish(msg);
+    }
+
+    void publish_robot_state()
+    {
+        robot_control_interfaces::msg::RobotState msg;
+        msg.robot_id = robot_id_;
+        msg.mission_id = "";
+        msg.current_task_id = "";
+        msg.x_m = posX_;
+        msg.y_m = posY_;
+        msg.yaw_rad = 0.0f;
+        msg.z_m = posZ_;
+        msg.velocity_mps = velocity_mps_;
+        msg.battery_pct = 100.0f;
+        msg.health_status = robot_control_interfaces::msg::RobotState::HEALTH_OK;
+        msg.faults = {};
+        msg.availability_status =
+            current_state_ == FlightState::WAITING
+                ? robot_control_interfaces::msg::RobotState::AVAIL_IDLE
+                : robot_control_interfaces::msg::RobotState::AVAIL_BUSY;
+        msg.heartbeat = heartbeat_counter_++;
+        robot_state_pub_->publish(msg);
+    }
 
     void trajectory_callback(const geometry_msgs::msg::PoseArray::SharedPtr msg)
     {
@@ -141,6 +200,7 @@ private:
 
     void local_position_callback(const px4_msgs::msg::VehicleLocalPosition::SharedPtr msg)
     {
+        velocity_mps_ = std::sqrt(msg->vx * msg->vx + msg->vy * msg->vy + msg->vz * msg->vz);
         posX_ = msg->x;
         posY_ = msg->y;
         posZ_ = msg->z;

@@ -51,6 +51,11 @@ class AgenticAI:
         broker.subscribe("task_update", self._on_task_update)
         broker.subscribe("mission_input", self._on_mission_input)
 
+    def shutdown(self):
+        self.stop_event.set()
+        if self.monitor_thread.is_alive():
+            self.monitor_thread.join(timeout=1.0)
+
     def _monitor_loop(self):
         """ Periodically checks for robot timeouts and task liveness. """
         while not self.stop_event.is_set():
