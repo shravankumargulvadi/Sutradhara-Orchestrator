@@ -260,6 +260,83 @@ ros2 launch inspection_sim inspection_uav_demo.launch.py gz_model_pose:="0,0,0.2
 ros2 launch inspection_sim inspection_uav_demo.launch.py px4_dir:=/home/shravan/Projects/PX4-Autopilot
 ```
 
+## End-To-End Patrol Demo
+
+To validate the full mission-text-driven patrol flow, use three terminals.
+
+### Terminal 1
+
+Start the simulation stack:
+
+```bash
+cd /home/shravan/Projects/ros2_ws_ai
+source /opt/ros/jazzy/setup.bash
+source /home/shravan/Projects/ros2_ws/install/setup.bash
+source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
+ros2 launch inspection_sim inspection_uav_demo.launch.py
+```
+
+### Terminal 2
+
+Start the orchestrator ROS bridge:
+
+```bash
+cd /home/shravan/Projects/ros2_ws_ai
+source /opt/ros/jazzy/setup.bash
+source /home/shravan/Projects/ros2_ws/install/setup.bash
+source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
+cd src/sutradhara_orchestrator
+.venv/bin/python -m sutradhara_orchestrator.cli ros-bridge
+```
+
+### Terminal 3
+
+Send a patrol mission using a sector ID:
+
+```bash
+cd /home/shravan/Projects/ros2_ws_ai
+source /opt/ros/jazzy/setup.bash
+source /home/shravan/Projects/ros2_ws/install/setup.bash
+source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
+ros2 topic pub --once /orchestrator/mission_input std_msgs/msg/String "{data: 'Patrol sector 1'}"
+```
+
+Or send a patrol mission using a named operational area:
+
+```bash
+cd /home/shravan/Projects/ros2_ws_ai
+source /opt/ros/jazzy/setup.bash
+source /home/shravan/Projects/ros2_ws/install/setup.bash
+source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
+ros2 topic pub --once /orchestrator/mission_input std_msgs/msg/String "{data: 'Patrol the inverter yard'}"
+```
+
+### Optional Observability
+
+Watch the task command emitted by the orchestrator:
+
+```bash
+ros2 topic echo /orchestrator/task_command
+```
+
+Watch the trajectory published by mission control:
+
+```bash
+ros2 topic echo /px4_1/trajectory_upload
+```
+
+Watch PX4 local position:
+
+```bash
+ros2 topic echo /px4_1/fmu/out/vehicle_local_position
+```
+
+Expected behavior:
+
+- the orchestrator emits a `PATROL` task with `target.kind = SECTOR_ID`
+- `mission_control_node` resolves the sector to a configured patrol route
+- the UAV takes off and flies the patrol path for that sector
+
 ## How Everything Fits Together
 
 The pieces are separated intentionally:

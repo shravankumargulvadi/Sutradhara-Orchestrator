@@ -35,16 +35,19 @@ def test_self_healing_reallocation(mock_completion, tmp_path):
     
     mock_decomp = MagicMock()
     mock_decomp.choices[0].message.content = """
-    [
-        {
-            "task_id": "repair_task",
-            "task_type": 0,
-            "target": {"kind": 0, "points": [{"x": 1.0, "y": 1.0}]},
-            "constraints": {"require_sensors": ["RGB"]},
-            "priority": 100,
-            "dependencies": []
-        }
-    ]
+    {
+        "reasoning": "Assign one inspection task.",
+        "tasks": [
+            {
+                "task_id": "repair_task",
+                "task_type": 0,
+                "target": {"kind": 0, "points": [{"x": 1.0, "y": 1.0}], "asset_id": "", "sector_id": ""},
+                "constraints": {"require_sensors": ["RGB"]},
+                "priority": 100,
+                "dependencies": []
+            }
+        ]
+    }
     """
     mock_decomp.usage.prompt_tokens = 10
     mock_decomp.usage.completion_tokens = 10
