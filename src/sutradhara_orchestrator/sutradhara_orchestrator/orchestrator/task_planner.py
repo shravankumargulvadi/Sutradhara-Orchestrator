@@ -8,6 +8,7 @@ from ..messages.task_command import TaskSpec, TaskTarget, TaskConstraints, Point
 from ..models.task import Task, TaskStatus
 from ..orchestrator.token_budget import ModelTokenBudget
 from ..utils.config_manager import config
+from .sector_catalog import SectorCatalog, SectorDefinition
 
 logger = logging.getLogger(__name__)
 
@@ -15,16 +16,27 @@ class TaskPlanner:
     """
     Decomposes missions into executable task graphs using Gemini and skill context.
     """
-    def __init__(self, skills_dir: Optional[str] = None, model: Optional[str] = None):
+    def __init__(
+        self,
+        skills_dir: Optional[str] = None,
+        model: Optional[str] = None,
+        sectors_file: Optional[str] = None,
+    ):
         self.skills_dir = skills_dir or config.get("discovery.skills_directory", "./skills")
         self.skill_loader = SkillLoader(self.skills_dir)
         self.model = model or config.get("llm.main_model", "gemini/gemini-2.0-flash")
+        self.sector_catalog = SectorCatalog(sectors_file or config.get("discovery.sectors_file"))
 
-    def decompose(self, mission: MissionInput, world_state: Dict[str, Any], 
+    def decompose(self, mission: MissionInput, world_state: Dict[str, Any],
                   token_budget: ModelTokenBudget) -> Tuple[List[Task], str]:
         """
         Decomposes a mission into a list of Task objects and returns reasoning.
         """
+        deterministic_tasks, deterministic_reasoning = self._fallback_patrol_tasks(mission)
+        if deterministic_tasks:
+            logger.info("Using deterministic patrol fallback for mission %s", mission.mission_id)
+            return deterministic_tasks, deterministic_reasoning
+
         # 1. Select relevant skills
         selected_skills = self.skill_loader.select_skills(mission.description, token_budget)
         
@@ -38,6 +50,8 @@ class TaskPlanner:
             "You are an expert robot mission planner. Decompose the mission into a list of executable tasks.\n"
             "Use these skills for reference:\n"
             f"{skills_context}\n\n"
+            "If the mission is a patrol over a named sector or named operational area, prefer a PATROL task "
+            "that uses target.kind=3 (SECTOR_ID) and target.sector_id.\n\n"
             "Respond ONLY with a JSON object containing 'tasks' and 'reasoning' keys.\n"
             "Example:\n"
             "{\n"
@@ -57,9 +71,12 @@ class TaskPlanner:
             "Target Kinds: 0=POINT, 1=REGION, 2=ASSET_ID, 3=SECTOR_ID"
         )
 
+        sector_context = self._build_sector_context()
+
         user_prompt = (
             f"Mission: {mission.description}\n\n"
             f"Available Robots & State: {json.dumps(world_state, indent=2)}\n\n"
+            f"Available Patrol Sectors: {sector_context}\n\n"
             "Decompose this mission into a task graph."
         )
 
@@ -135,6 +152,43 @@ class TaskPlanner:
             if 'response' in locals() and hasattr(response, 'choices'):
                 logger.error(f"Failed response content: {response.choices[0].message.content}")
             return [], str(e)
+
+    def _build_sector_context(self) -> str:
+        if not self.sector_catalog.sectors:
+            return "[]"
+        return json.dumps(self.sector_catalog.summaries(), indent=2)
+
+    def _fallback_patrol_tasks(self, mission: MissionInput) -> Tuple[List[Task], str]:
+        matched_sector = self.sector_catalog.match_patrol_request(mission.description)
+        if not matched_sector:
+            return [], ""
+
+        task = self._build_sector_patrol_task(mission, matched_sector)
+        reasoning = (
+            f"Mission explicitly requests patrol behavior for {matched_sector.display_name}; "
+            f"using configured sector patrol {matched_sector.sector_id}."
+        )
+        return [task], reasoning
+
+    @staticmethod
+    def _build_sector_patrol_task(mission: MissionInput, sector: SectorDefinition) -> Task:
+        target = TaskTarget(
+            kind=TaskTarget.SECTOR_ID,
+            sector_id=sector.sector_id,
+        )
+        spec = TaskSpec(
+            task_type=TaskSpec.PATROL,
+            target=target,
+            constraints=TaskConstraints(),
+            success_criteria=["SECTOR_PATROL_COMPLETE"],
+        )
+        return Task(
+            task_id=f"patrol_{sector.sector_id}",
+            mission_id=mission.mission_id,
+            spec=spec,
+            priority=80,
+            dependencies=[],
+        )
 
     def summarize(self, mission_desc: str, task_results: List[Dict[str, Any]], 
                   token_budget: ModelTokenBudget) -> str:
