@@ -1,6 +1,8 @@
 routes:
   - route_id: perimeter_overview
     description: "Clockwise perimeter overview of the solar farm."
+    route_type: overview
+    sector_id: sector_4
     robot_type: uav
     nominal_altitude_m: 18.0
     assets_covered:
@@ -16,6 +18,8 @@ routes:
 
   - route_id: critical_assets_inspection
     description: "Focus route for inverter, battery, and anomaly row inspection."
+    route_type: inspection
+    sector_id: sector_3
     robot_type: uav
     nominal_altitude_m: 10.0
     assets_covered:
@@ -32,3 +36,69 @@ routes:
       - {x: 52.0, y: -20.0, z: 8.0}
       - {x: 40.0, y: 30.0, z: 9.0}
       - {x: 57.0, y: 30.0, z: 7.0}
+
+  - route_id: patrol_sector_1
+    description: "Patrol route for the west solar rows."
+    route_type: patrol
+    sector_id: sector_1
+    robot_type: uav
+    nominal_altitude_m: 12.0
+    assets_covered:
+      - row_01
+      - row_06
+    waypoints:
+      - {x: -46.0, y: -36.0, z: 12.0}
+      - {x: -18.0, y: -36.0, z: 12.0}
+      - {x: -18.0, y: 24.0, z: 12.0}
+      - {x: -46.0, y: 24.0, z: 12.0}
+      - {x: -46.0, y: -36.0, z: 12.0}
+
+  - route_id: patrol_sector_2
+    description: "Patrol route for the east solar rows."
+    route_type: patrol
+    sector_id: sector_2
+    robot_type: uav
+    nominal_altitude_m: 12.0
+    assets_covered:
+      - row_12
+    waypoints:
+      - {x: -2.0, y: -36.0, z: 12.0}
+      - {x: 30.0, y: -36.0, z: 12.0}
+      - {x: 30.0, y: 44.0, z: 12.0}
+      - {x: -2.0, y: 44.0, z: 12.0}
+      - {x: -2.0, y: -36.0, z: 12.0}
+
+  - route_id: patrol_sector_3
+    description: "Patrol route for the inverter yard."
+    route_type: patrol
+    sector_id: sector_3
+    robot_type: uav
+    nominal_altitude_m: 10.0
+    assets_covered:
+      - inverter_01
+      - inverter_02
+    waypoints:
+      - {x: 36.0, y: 18.0, z: 10.0}
+      - {x: 58.0, y: 18.0, z: 10.0}
+      - {x: 58.0, y: -24.0, z: 10.0}
+      - {x: 36.0, y: -24.0, z: 10.0}
+      - {x: 36.0, y: 18.0, z: 10.0}
+
+  - route_id: patrol_sector_4
+    description: "Patrol route for the battery yard and north perimeter."
+    route_type: patrol
+    sector_id: sector_4
+    robot_type: uav
+    nominal_altitude_m: 14.0
+    assets_covered:
+      - battery_container_01
+      - weather_station_01
+      - north_perimeter_gate
+    waypoints:
+      - {x: -60.0, y: 40.0, z: 14.0}
+      - {x: -60.0, y: 60.0, z: 14.0}
+      - {x: 10.0, y: 60.0, z: 14.0}
+      - {x: 60.0, y: 40.0, z: 14.0}
+      - {x: 60.0, y: 20.0, z: 14.0}
+      - {x: 10.0, y: 20.0, z: 14.0}
+      - {x: -60.0, y: 40.0, z: 14.0}

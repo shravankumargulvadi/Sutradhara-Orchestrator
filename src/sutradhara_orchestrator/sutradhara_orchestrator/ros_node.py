@@ -158,6 +158,7 @@ class OrchestratorRosNode(Node):
         target_msg.frame = target_dict.get("frame", "map")
         target_msg.kind = int(target_dict.get("kind", RosTaskTarget.POINT))
         target_msg.asset_id = target_dict.get("asset_id", "")
+        target_msg.sector_id = target_dict.get("sector_id", "")
         target_msg.points = [self._build_point(point_dict) for point_dict in target_dict.get("points", [])]
         return target_msg
 

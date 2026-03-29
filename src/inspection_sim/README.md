@@ -24,7 +24,7 @@ The package is intentionally split into four layers:
 - `models/`
   - reusable SDF models referenced by the world
 - `config/`
-  - semantic inspection data such as asset IDs and route definitions
+  - semantic inspection data such as asset IDs, sector definitions, and route definitions
 - `launch/`
   - ROS launch entrypoint for running the world
 
@@ -45,6 +45,7 @@ Generated files:
 - [`models/weather_station/model.config`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/models/weather_station/model.config)
 - [`models/weather_station/model.sdf`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/models/weather_station/model.sdf)
 - [`config/assets.yaml`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/config/assets.yaml)
+- [`config/sectors.yaml`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/config/sectors.yaml)
 - [`config/routes.yaml`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/config/routes.yaml)
 - [`launch/solar_farm_world.launch.py`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/launch/solar_farm_world.launch.py)
 - [`launch/inspection_uav_demo.launch.py`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/launch/inspection_uav_demo.launch.py)
@@ -116,7 +117,7 @@ The anomaly cues are visual only for now. They exist to make the environment fee
 
 ## Semantic Inspection Data
 
-Two YAML files define the inspection-facing semantic layer.
+Three YAML files define the inspection-facing semantic layer.
 
 ### Assets
 
@@ -147,6 +148,10 @@ Current routes:
 
 - `perimeter_overview`
 - `critical_assets_inspection`
+- `patrol_sector_1`
+- `patrol_sector_2`
+- `patrol_sector_3`
+- `patrol_sector_4`
 
 Each route includes:
 
@@ -158,6 +163,32 @@ Each route includes:
 - ordered waypoint list
 
 These routes are not yet automatically consumed by the mission stack. They were added now so the environment, asset catalog, and future execution logic all share the same coordinates.
+
+### Sectors
+
+[`config/sectors.yaml`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/config/sectors.yaml) defines the planning abstraction that the orchestrator can use for MVP patrol missions.
+
+Current sectors:
+
+- `sector_1`
+- `sector_2`
+- `sector_3`
+- `sector_4`
+
+Each sector includes:
+
+- sector ID
+- display name
+- default patrol route
+- assets contained in that sector
+
+For the current MVP, the intended abstraction is:
+
+- orchestrator thinks in sectors
+- mission control resolves sector to route
+- `uav_manager` flies the resulting waypoints
+
+The sector-to-route mapping is currently implemented inside `mission_control_node`.
 
 ## How Launch Works
 
@@ -239,6 +270,8 @@ The pieces are separated intentionally:
   - defines reusable infrastructure building blocks
 - [`config/assets.yaml`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/config/assets.yaml)
   - defines named inspectable objects and coordinates
+- [`config/sectors.yaml`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/config/sectors.yaml)
+  - defines planning sectors and their default patrol routes
 - [`config/routes.yaml`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/config/routes.yaml)
   - defines repeatable route geometry for UAV missions
 - [`launch/solar_farm_world.launch.py`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/launch/solar_farm_world.launch.py)
@@ -253,7 +286,50 @@ This makes the package easy to extend:
 
 ## Next Integration Step
 
-The next practical step is to connect [`config/routes.yaml`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/config/routes.yaml) to the execution stack so the UAV can fly named solar-farm inspection routes without hardcoded shell-script waypoints.
+The next practical step is to connect sector-based mission intent from the orchestrator to the new mission-control route resolver so the UAV can patrol the solar farm by sector without hardcoded shell-script waypoints.
+
+## Patrol Command Convention
+
+For the current MVP, sector patrol uses the existing `TaskCommand` message without adding a new field yet.
+
+The convention is:
+
+- `task.task_type = PATROL`
+- `task.target.kind = SECTOR_ID`
+- `task.target.sector_id = <sector_id>`
+
+Example:
+
+```bash
+ros2 topic pub --once /orchestrator/task_command robot_control_interfaces/msg/TaskCommand "{
+  mission_id: 'mission_sector_patrol',
+  task_id: 'task_sector_1',
+  command_id: 'cmd_sector_1',
+  robot_id: 'px4_1',
+  type: 0,
+  priority: 50,
+  task: {
+    task_type: 3,
+    target: {
+      frame: 'map',
+      kind: 3,
+      points: [],
+      asset_id: '',
+      sector_id: 'sector_1'
+    },
+    constraints: {
+      safety_radius_m: 0.0,
+      min_battery_pct_to_start: 0.0,
+      require_sensors: []
+    },
+    success_criteria: {
+      criteria: ['SECTOR_PATROL_COMPLETE']
+    }
+  }
+}"
+```
+
+`mission_control_node` resolves `sector_1` to the configured patrol route from [`config/sectors.yaml`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/config/sectors.yaml) and [`config/routes.yaml`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/config/routes.yaml), then publishes the resulting `PoseArray` to the UAV.
 
 ## MVP vs Future Autonomy
 

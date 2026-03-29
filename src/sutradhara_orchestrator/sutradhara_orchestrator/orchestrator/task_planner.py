@@ -46,7 +46,7 @@ class TaskPlanner:
             "    {\n"
             "      \"task_id\": \"task_1\",\n"
             "      \"task_type\": 0,\n"
-            "      \"target\": {\"kind\": 0, \"points\": [{\"x\": 10, \"y\": 10}], \"asset_id\": \"\"},\n"
+            "      \"target\": {\"kind\": 0, \"points\": [{\"x\": 10, \"y\": 10}], \"asset_id\": \"\", \"sector_id\": \"\"},\n"
             "      \"constraints\": {\"require_sensors\": [], \"min_battery_pct_to_start\": 10},\n"
             "      \"priority\": 50,\n"
             "      \"dependencies\": []\n"
@@ -54,7 +54,7 @@ class TaskPlanner:
             "  ]\n"
             "}\n"
             "Task Types: 0=INSPECT, 1=VERIFY, 2=REVISIT, 3=PATROL, 4=RETURN_HOME\n"
-            "Target Kinds: 0=POINT, 1=REGION"
+            "Target Kinds: 0=POINT, 1=REGION, 2=ASSET_ID, 3=SECTOR_ID"
         )
 
         user_prompt = (
@@ -101,7 +101,8 @@ class TaskPlanner:
                     target = TaskTarget(
                         kind=target_raw.get("kind", 0),
                         points=points,
-                        asset_id=target_raw.get("asset_id", "")
+                        asset_id=target_raw.get("asset_id", ""),
+                        sector_id=target_raw.get("sector_id", "")
                     )
                     
                     constraints_raw = t_raw.get("constraints", {})
