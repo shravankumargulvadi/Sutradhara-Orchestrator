@@ -12,11 +12,13 @@ from std_msgs.msg import String
 from robot_control_interfaces.msg import CapabilityProfile as RosCapabilityProfile
 from robot_control_interfaces.msg import Point2D as RosPoint2D
 from robot_control_interfaces.msg import RobotState as RosRobotState
+from robot_control_interfaces.msg import TaskAck as RosTaskAck
 from robot_control_interfaces.msg import TaskCommand as RosTaskCommand
 from robot_control_interfaces.msg import TaskConstraints as RosTaskConstraints
 from robot_control_interfaces.msg import TaskSpec as RosTaskSpec
 from robot_control_interfaces.msg import TaskSuccessCriteria as RosTaskSuccessCriteria
 from robot_control_interfaces.msg import TaskTarget as RosTaskTarget
+from robot_control_interfaces.msg import TaskUpdate as RosTaskUpdate
 
 from .messages.mission_input import MissionInput
 from .orchestrator.agentic_ai import AgenticAI
@@ -56,6 +58,18 @@ class OrchestratorRosNode(Node):
             RosRobotState,
             "/orchestrator/robot_state",
             self._on_robot_state,
+            10,
+        )
+        self._task_ack_sub = self.create_subscription(
+            RosTaskAck,
+            "/orchestrator/task_ack",
+            self._on_task_ack,
+            10,
+        )
+        self._task_update_sub = self.create_subscription(
+            RosTaskUpdate,
+            "/orchestrator/task_update",
+            self._on_task_update,
             10,
         )
 
@@ -117,6 +131,34 @@ class OrchestratorRosNode(Node):
                 "faults": list(msg.faults),
                 "availability_status": msg.availability_status,
                 "heartbeat": msg.heartbeat,
+            },
+        )
+
+    def _on_task_ack(self, msg: RosTaskAck) -> None:
+        broker.publish(
+            "task_ack",
+            {
+                "mission_id": msg.mission_id,
+                "robot_id": msg.robot_id,
+                "task_id": msg.task_id,
+                "command_id": msg.command_id,
+                "decision": msg.decision,
+                "reject_reason_code": msg.reject_reason_code,
+                "reject_reason_detail": msg.reject_reason_detail,
+            },
+        )
+
+    def _on_task_update(self, msg: RosTaskUpdate) -> None:
+        broker.publish(
+            "task_update",
+            {
+                "mission_id": msg.mission_id,
+                "robot_id": msg.robot_id,
+                "task_id": msg.task_id,
+                "status": msg.status,
+                "progress_pct": msg.progress_pct,
+                "status_detail": msg.status_detail,
+                "timestamp": msg.timestamp,
             },
         )
 

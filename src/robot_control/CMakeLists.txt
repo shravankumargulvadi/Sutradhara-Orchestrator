@@ -27,11 +27,16 @@ add_executable(uav_manager src/uav_manager.cpp)
 
 # Specify dependencies for your executable
 ament_target_dependencies(uav_manager
+  ament_index_cpp
   rclcpp
   px4_msgs
   geometry_msgs
   std_msgs
   robot_control_interfaces
+)
+
+target_link_libraries(uav_manager
+  yaml-cpp::yaml-cpp
 )
 
 add_library(sector_route_registry_lib src/sector_route_registry.cpp)
