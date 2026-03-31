@@ -221,34 +221,46 @@ This keeps PX4 as an external black-box dependency while letting this repo own t
 
 The launch file does not copy or vendor PX4 binaries into this repo. Instead, it points at the existing PX4 binary on disk and runs it with environment variables that tell PX4 to connect to the already-running Gazebo instance.
 
+Runtime paths are resolved from environment variables or launch arguments rather than fixed host paths.
+
+Common variables:
+- `PX4_DIR`
+- `PX4_BIN`
+- `PX4_GZ_MODELS_PATH`
+- `PX4_GZ_WORLDS_PATH`
+- `UNDERLAY_INSTALL`
+- `XRCE_INSTALL`
+- `MICRO_XRCE_AGENT_BIN`
+- `MICRO_XRCE_AGENT_LIB_DIR`
+
 ## Build And Run
 
 Build only this package:
 
 ```bash
-cd /home/shravan/Projects/ros2_ws_ai
+cd "$ROS2_WS_AI_ROOT"
 source /opt/ros/jazzy/setup.bash
-source /home/shravan/Projects/ros2_ws/install/setup.bash
+source "$UNDERLAY_INSTALL/setup.bash"
 colcon build --packages-select inspection_sim
 ```
 
 Run the world:
 
 ```bash
-cd /home/shravan/Projects/ros2_ws_ai
+cd "$ROS2_WS_AI_ROOT"
 source /opt/ros/jazzy/setup.bash
-source /home/shravan/Projects/ros2_ws/install/setup.bash
-source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
+source "$UNDERLAY_INSTALL/setup.bash"
+source "$ROS2_WS_AI_ROOT/install/setup.bash"
 ros2 launch inspection_sim solar_farm_world.launch.py
 ```
 
 Run the one-UAV solar farm demo:
 
 ```bash
-cd /home/shravan/Projects/ros2_ws_ai
+cd "$ROS2_WS_AI_ROOT"
 source /opt/ros/jazzy/setup.bash
-source /home/shravan/Projects/ros2_ws/install/setup.bash
-source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
+source "$UNDERLAY_INSTALL/setup.bash"
+source "$ROS2_WS_AI_ROOT/install/setup.bash"
 ros2 launch inspection_sim inspection_uav_demo.launch.py
 ```
 
@@ -257,7 +269,7 @@ Useful launch arguments:
 ```bash
 ros2 launch inspection_sim inspection_uav_demo.launch.py flight_altitude_m:=10.0
 ros2 launch inspection_sim inspection_uav_demo.launch.py gz_model_pose:="0,0,0.2,0,0,0"
-ros2 launch inspection_sim inspection_uav_demo.launch.py px4_dir:=/home/shravan/Projects/PX4-Autopilot
+ros2 launch inspection_sim inspection_uav_demo.launch.py px4_dir:="$PX4_DIR"
 ```
 
 ## End-To-End Patrol Demo
@@ -269,10 +281,10 @@ To validate the full mission-text-driven patrol flow, use three terminals.
 Start the simulation stack:
 
 ```bash
-cd /home/shravan/Projects/ros2_ws_ai
+cd "$ROS2_WS_AI_ROOT"
 source /opt/ros/jazzy/setup.bash
-source /home/shravan/Projects/ros2_ws/install/setup.bash
-source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
+source "$UNDERLAY_INSTALL/setup.bash"
+source "$ROS2_WS_AI_ROOT/install/setup.bash"
 ros2 launch inspection_sim inspection_uav_demo.launch.py
 ```
 
@@ -281,10 +293,10 @@ ros2 launch inspection_sim inspection_uav_demo.launch.py
 Start the orchestrator ROS bridge:
 
 ```bash
-cd /home/shravan/Projects/ros2_ws_ai
+cd "$ROS2_WS_AI_ROOT"
 source /opt/ros/jazzy/setup.bash
-source /home/shravan/Projects/ros2_ws/install/setup.bash
-source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
+source "$UNDERLAY_INSTALL/setup.bash"
+source "$ROS2_WS_AI_ROOT/install/setup.bash"
 cd src/sutradhara_orchestrator
 .venv/bin/python -m sutradhara_orchestrator.cli ros-bridge
 ```
@@ -294,20 +306,20 @@ cd src/sutradhara_orchestrator
 Send a patrol mission using a sector ID:
 
 ```bash
-cd /home/shravan/Projects/ros2_ws_ai
+cd "$ROS2_WS_AI_ROOT"
 source /opt/ros/jazzy/setup.bash
-source /home/shravan/Projects/ros2_ws/install/setup.bash
-source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
+source "$UNDERLAY_INSTALL/setup.bash"
+source "$ROS2_WS_AI_ROOT/install/setup.bash"
 ros2 topic pub --once /orchestrator/mission_input std_msgs/msg/String "{data: 'Patrol sector 1'}"
 ```
 
 Or send a patrol mission using a named operational area:
 
 ```bash
-cd /home/shravan/Projects/ros2_ws_ai
+cd "$ROS2_WS_AI_ROOT"
 source /opt/ros/jazzy/setup.bash
-source /home/shravan/Projects/ros2_ws/install/setup.bash
-source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
+source "$UNDERLAY_INSTALL/setup.bash"
+source "$ROS2_WS_AI_ROOT/install/setup.bash"
 ros2 topic pub --once /orchestrator/mission_input std_msgs/msg/String "{data: 'Patrol the inverter yard'}"
 ```
 

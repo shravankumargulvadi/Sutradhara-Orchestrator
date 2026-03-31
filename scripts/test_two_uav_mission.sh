@@ -2,12 +2,13 @@
 
 set -euo pipefail
 
-WORKSPACE_DIR="/home/shravan/Projects/ros2_ws_ai"
-UNDERLAY_DIR="/home/shravan/Projects/ros2_ws"
-XRCE_WS_DIR="/home/shravan/Projects/px4_ros_uxrce_dds_ws"
-PX4_DIR="/home/shravan/Projects/PX4-Autopilot"
-PX4_BIN="$PX4_DIR/build/px4_sitl_default/bin/px4"
-MICRO_XRCE_AGENT_BIN_DEFAULT="$XRCE_WS_DIR/install/microxrcedds_agent/bin/MicroXRCEAgent"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_DIR="${ROS2_WS_AI_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+UNDERLAY_INSTALL="${UNDERLAY_INSTALL:-/workspace/underlay/install}"
+XRCE_INSTALL="${XRCE_INSTALL:-/workspace/px4_ros_uxrce_dds_ws/install}"
+PX4_DIR="${PX4_DIR:-/workspace/PX4-Autopilot}"
+PX4_BIN="${PX4_BIN:-$PX4_DIR/build/px4_sitl_default/bin/px4}"
+MICRO_XRCE_AGENT_BIN_DEFAULT="${MICRO_XRCE_AGENT_BIN:-$XRCE_INSTALL/microxrcedds_agent/bin/MicroXRCEAgent}"
 
 FLIGHT_ALTITUDE_M="${FLIGHT_ALTITUDE_M:-8.0}"
 WAIT_FOR_TOPICS_SEC="${WAIT_FOR_TOPICS_SEC:-60}"
@@ -147,9 +148,11 @@ fi
 mkdir -p "$LOG_ROOT"
 
 source_setup /opt/ros/jazzy/setup.bash
-source_setup "$UNDERLAY_DIR/install/setup.bash"
+source_setup "$UNDERLAY_INSTALL/setup.bash"
 source_setup "$WORKSPACE_DIR/install/setup.bash"
-source_setup "$XRCE_WS_DIR/install/setup.bash"
+if [[ -f "$XRCE_INSTALL/setup.bash" ]]; then
+  source_setup "$XRCE_INSTALL/setup.bash"
+fi
 
 if ! MICRO_XRCE_AGENT_BIN="$(resolve_micro_xrce_agent)"; then
   echo "Could not find MicroXRCEAgent in $MICRO_XRCE_AGENT_BIN_DEFAULT or on PATH" >&2

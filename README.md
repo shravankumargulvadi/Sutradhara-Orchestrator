@@ -7,6 +7,35 @@ Current architecture note:
 - `sutradhara_orchestrator` is still a Python package managed with `uv`
 - a thin ROS bridge now wraps the orchestrator so it can talk to the ROS graph
 
+## Runtime Path Contract
+
+Runtime paths for PX4, the underlay, and the XRCE agent are configured with environment variables or launch arguments instead of hardcoded home-directory paths.
+
+Primary variables:
+- `ROS2_WS_AI_ROOT`
+- `UNDERLAY_INSTALL`
+- `PX4_DIR`
+- `PX4_BIN`
+- `PX4_GZ_MODELS_PATH`
+- `PX4_GZ_WORLDS_PATH`
+- `XRCE_INSTALL`
+- `MICRO_XRCE_AGENT_BIN`
+- `MICRO_XRCE_AGENT_LIB_DIR`
+
+Container-friendly defaults are used when these are unset. On a local machine, export the values that match your setup before running launch files or helper scripts.
+
+Example local setup:
+
+```bash
+export ROS2_WS_AI_ROOT="$HOME/Projects/ros2_ws_ai"
+export UNDERLAY_INSTALL="$HOME/Projects/ros2_ws/install"
+export PX4_DIR="$HOME/Projects/PX4-Autopilot"
+export PX4_BIN="$PX4_DIR/build/px4_sitl_default/bin/px4"
+export XRCE_INSTALL="$HOME/Projects/px4_ros_uxrce_dds_ws/install"
+export MICRO_XRCE_AGENT_BIN="$XRCE_INSTALL/microxrcedds_agent/bin/MicroXRCEAgent"
+export MICRO_XRCE_AGENT_LIB_DIR="$XRCE_INSTALL/microxrcedds_agent/lib"
+```
+
 ## Scope
 
 This workspace is currently validated for:
@@ -20,9 +49,7 @@ This workspace is currently validated for:
 
 ## Important underlay requirement
 
-`robot_control` currently depends on `px4_msgs` from the original workspace:
-
-`/home/shravan/Projects/ros2_ws`
+`robot_control` currently depends on `px4_msgs` from an underlay workspace exposed through `UNDERLAY_INSTALL`.
 
 That means you must source the original workspace as an underlay before building or running anything from `ros2_ws_ai`.
 
@@ -30,8 +57,8 @@ Build/run order for this workspace is:
 
 ```bash
 source /opt/ros/jazzy/setup.bash
-source /home/shravan/Projects/ros2_ws/install/setup.bash
-source /home/shravan/Projects/ros2_ws_ai/install/setup.bash
+source "$UNDERLAY_INSTALL/setup.bash"
+source "$ROS2_WS_AI_ROOT/install/setup.bash"
 ```
 
 If you skip the `ros2_ws` underlay, `robot_control` will not resolve `px4_msgs`.

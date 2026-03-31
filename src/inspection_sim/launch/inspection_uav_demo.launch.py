@@ -8,34 +8,39 @@ from launch.substitutions import EnvironmentVariable, LaunchConfiguration, PathJ
 from launch_ros.actions import Node
 
 
+def env_or_default(name: str, default: str) -> str:
+    return os.environ.get(name, default)
+
+
 def generate_launch_description() -> LaunchDescription:
     inspection_share = Path(get_package_share_directory("inspection_sim"))
     world_path = inspection_share / "worlds" / "solar_farm_world.sdf"
     inspection_models_path = inspection_share / "models"
     world_name = "solar_farm_demo"
 
-    default_px4_dir = "/home/shravan/Projects/PX4-Autopilot"
-    default_underlay_install = "/home/shravan/Projects/ros2_ws/install"
-    default_xrce_agent = (
-        "/home/shravan/Projects/px4_ros_uxrce_dds_ws/install/"
-        "microxrcedds_agent/bin/MicroXRCEAgent"
+    default_px4_dir = env_or_default("PX4_DIR", "/workspace/PX4-Autopilot")
+    default_underlay_install = env_or_default("UNDERLAY_INSTALL", "/workspace/underlay/install")
+    default_px4_models_path = env_or_default(
+        "PX4_GZ_MODELS_PATH",
+        f"{default_px4_dir}/Tools/simulation/gz/models",
     )
-    default_xrce_agent_lib_dir = (
-        "/home/shravan/Projects/px4_ros_uxrce_dds_ws/install/"
-        "microxrcedds_agent/lib"
+    default_px4_worlds_path = env_or_default(
+        "PX4_GZ_WORLDS_PATH",
+        f"{default_px4_dir}/Tools/simulation/gz/worlds",
     )
-    default_px4_models_path = f"{default_px4_dir}/Tools/simulation/gz/models"
-    default_px4_worlds_path = f"{default_px4_dir}/Tools/simulation/gz/worlds"
-
-    existing_resource_path = os.environ.get("GZ_SIM_RESOURCE_PATH", "")
-    resource_entries = [
-        str(inspection_models_path),
-        default_px4_models_path,
-        default_px4_worlds_path,
-    ]
-    if existing_resource_path:
-        resource_entries.append(existing_resource_path)
-    resource_path = ":".join(resource_entries)
+    default_px4_bin = env_or_default(
+        "PX4_BIN",
+        f"{default_px4_dir}/build/px4_sitl_default/bin/px4",
+    )
+    default_xrce_install = env_or_default("XRCE_INSTALL", "/workspace/px4_ros_uxrce_dds_ws/install")
+    default_xrce_agent = env_or_default(
+        "MICRO_XRCE_AGENT_BIN",
+        f"{default_xrce_install}/microxrcedds_agent/bin/MicroXRCEAgent",
+    )
+    default_xrce_agent_lib_dir = env_or_default(
+        "MICRO_XRCE_AGENT_LIB_DIR",
+        f"{default_xrce_install}/microxrcedds_agent/lib",
+    )
 
     px4_dir = LaunchConfiguration("px4_dir")
     px4_bin = LaunchConfiguration("px4_bin")
@@ -50,6 +55,15 @@ def generate_launch_description() -> LaunchDescription:
     gz_model_pose = LaunchConfiguration("gz_model_pose")
     wait_before_px4_s = LaunchConfiguration("wait_before_px4_s")
     wait_before_ros_nodes_s = LaunchConfiguration("wait_before_ros_nodes_s")
+    resource_path = [
+        str(inspection_models_path),
+        ":",
+        px4_gz_models_path,
+        ":",
+        px4_gz_worlds_path,
+        ":",
+        EnvironmentVariable("GZ_SIM_RESOURCE_PATH", default_value=""),
+    ]
     underlay_lib_path = PathJoinSubstitution([underlay_install, "px4_msgs", "lib"])
     merged_ld_library_path = [
         underlay_lib_path,
@@ -65,7 +79,7 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument("px4_dir", default_value=default_px4_dir),
             DeclareLaunchArgument(
                 "px4_bin",
-                default_value=f"{default_px4_dir}/build/px4_sitl_default/bin/px4",
+                default_value=default_px4_bin,
             ),
             DeclareLaunchArgument("px4_gz_models_path", default_value=default_px4_models_path),
             DeclareLaunchArgument("px4_gz_worlds_path", default_value=default_px4_worlds_path),
