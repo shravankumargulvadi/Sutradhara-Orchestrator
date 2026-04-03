@@ -18,8 +18,8 @@ def generate_launch_description() -> LaunchDescription:
     inspection_models_path = inspection_share / "models"
     world_name = "solar_farm_demo"
 
-    default_px4_dir = env_or_default("PX4_DIR", "/workspace/PX4-Autopilot")
-    default_underlay_install = env_or_default("UNDERLAY_INSTALL", "/workspace/underlay/install")
+    default_px4_dir = env_or_default("PX4_DIR", "/opt/px4")
+    default_underlay_install = env_or_default("UNDERLAY_INSTALL", "/opt/underlay_ws/install")
     default_px4_models_path = env_or_default(
         "PX4_GZ_MODELS_PATH",
         f"{default_px4_dir}/Tools/simulation/gz/models",
@@ -32,11 +32,15 @@ def generate_launch_description() -> LaunchDescription:
         "PX4_BIN",
         f"{default_px4_dir}/build/px4_sitl_default/bin/px4",
     )
+    default_px4_data_path = env_or_default(
+        "PX4_DATA_PATH",
+        f"{default_px4_dir}/build/px4_sitl_default/etc",
+    )
     default_px4_rootfs_base = env_or_default(
         "PX4_ROOTFS_BASE",
         f"{default_px4_dir}/build/px4_sitl_default/rootfs",
     )
-    default_xrce_install = env_or_default("XRCE_INSTALL", "/workspace/px4_ros_uxrce_dds_ws/install")
+    default_xrce_install = env_or_default("XRCE_INSTALL", "/opt/xrce_ws/install")
     default_xrce_agent = env_or_default(
         "MICRO_XRCE_AGENT_BIN",
         f"{default_xrce_install}/microxrcedds_agent/bin/MicroXRCEAgent",
@@ -50,6 +54,7 @@ def generate_launch_description() -> LaunchDescription:
     px4_bin = LaunchConfiguration("px4_bin")
     px4_gz_models_path = LaunchConfiguration("px4_gz_models_path")
     px4_gz_worlds_path = LaunchConfiguration("px4_gz_worlds_path")
+    px4_data_path = LaunchConfiguration("px4_data_path")
     px4_rootfs_base = LaunchConfiguration("px4_rootfs_base")
     underlay_install = LaunchConfiguration("underlay_install")
     micro_xrce_agent_bin = LaunchConfiguration("micro_xrce_agent_bin")
@@ -57,6 +62,7 @@ def generate_launch_description() -> LaunchDescription:
     px4_autostart = LaunchConfiguration("px4_autostart")
     flight_altitude_m = LaunchConfiguration("flight_altitude_m")
     drone_id = LaunchConfiguration("drone_id")
+    px4_working_dir = PathJoinSubstitution([px4_rootfs_base, drone_id])
     gz_model_pose = LaunchConfiguration("gz_model_pose")
     wait_before_px4_s = LaunchConfiguration("wait_before_px4_s")
     wait_before_ros_nodes_s = LaunchConfiguration("wait_before_ros_nodes_s")
@@ -87,6 +93,7 @@ def generate_launch_description() -> LaunchDescription:
                 "px4_bin",
                 default_value=default_px4_bin,
             ),
+            DeclareLaunchArgument("px4_data_path", default_value=default_px4_data_path),
             DeclareLaunchArgument("px4_rootfs_base", default_value=default_px4_rootfs_base),
             DeclareLaunchArgument("px4_gz_models_path", default_value=default_px4_models_path),
             DeclareLaunchArgument("px4_gz_worlds_path", default_value=default_px4_worlds_path),
@@ -129,8 +136,23 @@ def generate_launch_description() -> LaunchDescription:
                 period=wait_before_px4_s,
                 actions=[
                     ExecuteProcess(
-                        cmd=[px4_bin, "-i", drone_id],
-                        cwd=[px4_rootfs_base, "/", drone_id],
+                        cmd=[
+                            "bash",
+                            "-lc",
+                            [
+                                'mkdir -p "',
+                                px4_working_dir,
+                                '" && exec "',
+                                px4_bin,
+                                '" "',
+                                px4_data_path,
+                                '" -i ',
+                                drone_id,
+                                ' -w "',
+                                px4_working_dir,
+                                '"',
+                            ],
+                        ],
                         output="screen",
                         additional_env={
                             "PX4_GZ_STANDALONE": "1",

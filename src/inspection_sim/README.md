@@ -213,13 +213,18 @@ It starts the stack in this order:
 
 1. Gazebo with the solar farm world
 2. `MicroXRCEAgent`
-3. the existing PX4 SITL binary from the PX4 repo
+3. the PX4 SITL binary resolved through `PX4_BIN`
 4. `robot_control uav_manager`
 5. `robot_control mission_control_node`
 
-This keeps PX4 as an external black-box dependency while letting this repo own the world and orchestration.
+The launch file does not vendor PX4 into this package. It resolves PX4, the `px4_msgs` underlay, and the XRCE agent from the runtime environment.
 
-The launch file does not copy or vendor PX4 binaries into this repo. Instead, it points at the existing PX4 binary on disk and runs it with environment variables that tell PX4 to connect to the already-running Gazebo instance.
+That means the same launch file works in both modes:
+
+- Docker/self-contained image
+  - defaults resolve to `/opt/px4`, `/opt/underlay_ws/install`, and `/opt/xrce_ws/install`
+- local non-Docker workflow
+  - export the matching host paths first
 
 Runtime paths are resolved from environment variables or launch arguments rather than fixed host paths.
 
@@ -234,6 +239,35 @@ Common variables:
 - `MICRO_XRCE_AGENT_LIB_DIR`
 
 ## Build And Run
+
+Docker is the recommended workflow now.
+
+### Docker
+
+Build the image and open a dev shell:
+
+```bash
+cd "$ROS2_WS_AI_ROOT"
+cp .env.docker.example .env
+docker compose build dev sim
+docker compose run --rm dev bash
+```
+
+Inside the `dev` container:
+
+```bash
+cd "$ROS2_WS_AI_ROOT"
+colcon build --symlink-install
+```
+
+Run the one-UAV demo from the host:
+
+```bash
+cd "$ROS2_WS_AI_ROOT"
+bash scripts/docker/run_sim_demo.sh
+```
+
+### Local non-Docker
 
 Build only this package:
 
@@ -276,16 +310,15 @@ ros2 launch inspection_sim inspection_uav_demo.launch.py px4_dir:="$PX4_DIR"
 
 To validate the full mission-text-driven patrol flow, use three terminals.
 
+Docker is the primary documented path.
+
 ### Terminal 1
 
 Start the simulation stack:
 
 ```bash
 cd "$ROS2_WS_AI_ROOT"
-source /opt/ros/jazzy/setup.bash
-source "$UNDERLAY_INSTALL/setup.bash"
-source "$ROS2_WS_AI_ROOT/install/setup.bash"
-ros2 launch inspection_sim inspection_uav_demo.launch.py
+bash scripts/docker/run_sim_demo.sh
 ```
 
 ### Terminal 2
@@ -294,11 +327,10 @@ Start the orchestrator ROS bridge:
 
 ```bash
 cd "$ROS2_WS_AI_ROOT"
-source /opt/ros/jazzy/setup.bash
-source "$UNDERLAY_INSTALL/setup.bash"
-source "$ROS2_WS_AI_ROOT/install/setup.bash"
-cd src/sutradhara_orchestrator
-.venv/bin/python -m sutradhara_orchestrator.cli ros-bridge
+docker compose run --rm dev bash -lc '
+  cd $ROS2_WS_AI_ROOT/src/sutradhara_orchestrator &&
+  python3 -m sutradhara_orchestrator.cli ros-bridge
+'
 ```
 
 ### Terminal 3
@@ -307,20 +339,24 @@ Send a patrol mission using a sector ID:
 
 ```bash
 cd "$ROS2_WS_AI_ROOT"
-source /opt/ros/jazzy/setup.bash
-source "$UNDERLAY_INSTALL/setup.bash"
-source "$ROS2_WS_AI_ROOT/install/setup.bash"
-ros2 topic pub --once /orchestrator/mission_input std_msgs/msg/String "{data: 'Patrol sector 1'}"
+docker compose run --rm dev bash -lc '
+  source /opt/ros/jazzy/setup.bash &&
+  source $UNDERLAY_INSTALL/setup.bash &&
+  source $ROS2_WS_AI_ROOT/install/setup.bash &&
+  ros2 topic pub /orchestrator/mission_input std_msgs/msg/String "{data: '\''Patrol sector 1'\''}" -r 1 -t 5
+'
 ```
 
 Or send a patrol mission using a named operational area:
 
 ```bash
 cd "$ROS2_WS_AI_ROOT"
-source /opt/ros/jazzy/setup.bash
-source "$UNDERLAY_INSTALL/setup.bash"
-source "$ROS2_WS_AI_ROOT/install/setup.bash"
-ros2 topic pub --once /orchestrator/mission_input std_msgs/msg/String "{data: 'Patrol the inverter yard'}"
+docker compose run --rm dev bash -lc '
+  source /opt/ros/jazzy/setup.bash &&
+  source $UNDERLAY_INSTALL/setup.bash &&
+  source $ROS2_WS_AI_ROOT/install/setup.bash &&
+  ros2 topic pub /orchestrator/mission_input std_msgs/msg/String "{data: '\''Patrol the inverter yard'\''}" -r 1 -t 5
+'
 ```
 
 ### Optional Observability
@@ -348,6 +384,14 @@ Expected behavior:
 - the orchestrator emits a `PATROL` task with `target.kind = SECTOR_ID`
 - `mission_control_node` resolves the sector to a configured patrol route
 - the UAV takes off and flies the patrol path for that sector
+
+### Local non-Docker equivalent
+
+If you are not using Docker, the same flow still works with the local host setup:
+
+1. launch `inspection_uav_demo.launch.py`
+2. run `uv run python -m sutradhara_orchestrator.cli ros-bridge`
+3. publish `/orchestrator/mission_input`
 
 ## How Everything Fits Together
 

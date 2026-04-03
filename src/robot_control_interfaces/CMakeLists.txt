@@ -8,6 +8,11 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
+# rosidl_generator_py installs a generated Python package for these interfaces.
+# Under symlink-install this can clash with the generated build tree, so keep
+# this package on copy-install while leaving the rest of the workspace unchanged.
+set(AMENT_CMAKE_SYMLINK_INSTALL OFF)
+
 set(msg_files
   "msg/Point2D.msg"
   "msg/CapabilityProfile.msg"

@@ -9,20 +9,41 @@ cd "$WORKSPACE_DIR"
 
 run_args=(run --rm)
 launch_args=()
+xhost_granted=0
+
+cleanup() {
+  if [[ "$xhost_granted" -eq 1 ]] && command -v xhost >/dev/null 2>&1; then
+    xhost -SI:localuser:root >/dev/null 2>&1 || true
+  fi
+}
+
+trap cleanup EXIT
 
 if [[ -n "${DISPLAY:-}" ]]; then
   host_xauthority="${XAUTHORITY:-$HOME/.Xauthority}"
 
+  if command -v xhost >/dev/null 2>&1; then
+    if xhost +SI:localuser:root >/dev/null 2>&1; then
+      xhost_granted=1
+    else
+      echo "Warning: failed to grant X server access to local root; Gazebo GUI may still fail." >&2
+    fi
+  fi
+
+  run_args+=(
+    -e "DISPLAY=$DISPLAY"
+    -e "XAUTHORITY=/root/.Xauthority"
+  )
+
   if [[ -f "$host_xauthority" ]]; then
     run_args+=(
-      -e "DISPLAY=$DISPLAY"
-      -e "XAUTHORITY=/root/.Xauthority"
       -v "$host_xauthority:/root/.Xauthority:ro"
     )
-    launch_args+=(headless:=false)
   else
-    echo "DISPLAY is set but XAUTHORITY file was not found at $host_xauthority; falling back to headless Gazebo." >&2
+    echo "DISPLAY is set but XAUTHORITY file was not found at $host_xauthority; trying X host access without it." >&2
   fi
+
+  launch_args+=(headless:=false)
 fi
 
 docker compose "${run_args[@]}" sim bash -lc "

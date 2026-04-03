@@ -15,7 +15,7 @@ def generate_launch_description() -> LaunchDescription:
     package_share = Path(get_package_share_directory("inspection_sim"))
     world_path = package_share / "worlds" / "solar_farm_world.sdf"
     models_path = package_share / "models"
-    default_px4_dir = env_or_default("PX4_DIR", "/workspace/PX4-Autopilot")
+    default_px4_dir = env_or_default("PX4_DIR", "/opt/px4")
     default_px4_models_path = env_or_default(
         "PX4_GZ_MODELS_PATH",
         f"{default_px4_dir}/Tools/simulation/gz/models",
