@@ -4,7 +4,7 @@ import os
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, SetEnvironmentVariable, TimerAction
-from launch.substitutions import EnvironmentVariable, LaunchConfiguration, PathJoinSubstitution
+from launch.substitutions import EnvironmentVariable, LaunchConfiguration, PathJoinSubstitution, PythonExpression
 from launch_ros.actions import Node
 
 
@@ -32,6 +32,10 @@ def generate_launch_description() -> LaunchDescription:
         "PX4_BIN",
         f"{default_px4_dir}/build/px4_sitl_default/bin/px4",
     )
+    default_px4_rootfs_base = env_or_default(
+        "PX4_ROOTFS_BASE",
+        f"{default_px4_dir}/build/px4_sitl_default/rootfs",
+    )
     default_xrce_install = env_or_default("XRCE_INSTALL", "/workspace/px4_ros_uxrce_dds_ws/install")
     default_xrce_agent = env_or_default(
         "MICRO_XRCE_AGENT_BIN",
@@ -46,6 +50,7 @@ def generate_launch_description() -> LaunchDescription:
     px4_bin = LaunchConfiguration("px4_bin")
     px4_gz_models_path = LaunchConfiguration("px4_gz_models_path")
     px4_gz_worlds_path = LaunchConfiguration("px4_gz_worlds_path")
+    px4_rootfs_base = LaunchConfiguration("px4_rootfs_base")
     underlay_install = LaunchConfiguration("underlay_install")
     micro_xrce_agent_bin = LaunchConfiguration("micro_xrce_agent_bin")
     micro_xrce_agent_lib_dir = LaunchConfiguration("micro_xrce_agent_lib_dir")
@@ -55,6 +60,7 @@ def generate_launch_description() -> LaunchDescription:
     gz_model_pose = LaunchConfiguration("gz_model_pose")
     wait_before_px4_s = LaunchConfiguration("wait_before_px4_s")
     wait_before_ros_nodes_s = LaunchConfiguration("wait_before_ros_nodes_s")
+    headless = LaunchConfiguration("headless")
     resource_path = [
         str(inspection_models_path),
         ":",
@@ -81,6 +87,7 @@ def generate_launch_description() -> LaunchDescription:
                 "px4_bin",
                 default_value=default_px4_bin,
             ),
+            DeclareLaunchArgument("px4_rootfs_base", default_value=default_px4_rootfs_base),
             DeclareLaunchArgument("px4_gz_models_path", default_value=default_px4_models_path),
             DeclareLaunchArgument("px4_gz_worlds_path", default_value=default_px4_worlds_path),
             DeclareLaunchArgument("underlay_install", default_value=default_underlay_install),
@@ -92,11 +99,26 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument("gz_model_pose", default_value="0,0,1.0,0,0,0"),
             DeclareLaunchArgument("wait_before_px4_s", default_value="2.0"),
             DeclareLaunchArgument("wait_before_ros_nodes_s", default_value="10.0"),
+            DeclareLaunchArgument("headless", default_value="true"),
             SetEnvironmentVariable("GZ_SIM_RESOURCE_PATH", resource_path),
             SetEnvironmentVariable("LD_LIBRARY_PATH", merged_ld_library_path),
             SetEnvironmentVariable("AMENT_PREFIX_PATH", merged_ament_prefix_path),
             ExecuteProcess(
-                cmd=["gz", "sim", "-r", str(world_path)],
+                cmd=[
+                    "bash",
+                    "-lc",
+                    PythonExpression(
+                        [
+                            '"gz sim -r -s ',
+                            str(world_path),
+                            '" if "',
+                            headless,
+                            '" == "true" else "gz sim -r ',
+                            str(world_path),
+                            '"',
+                        ]
+                    ),
+                ],
                 output="screen",
             ),
             ExecuteProcess(
@@ -108,7 +130,7 @@ def generate_launch_description() -> LaunchDescription:
                 actions=[
                     ExecuteProcess(
                         cmd=[px4_bin, "-i", drone_id],
-                        cwd=px4_dir,
+                        cwd=[px4_rootfs_base, "/", drone_id],
                         output="screen",
                         additional_env={
                             "PX4_GZ_STANDALONE": "1",

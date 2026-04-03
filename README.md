@@ -36,6 +36,60 @@ export MICRO_XRCE_AGENT_BIN="$XRCE_INSTALL/microxrcedds_agent/bin/MicroXRCEAgent
 export MICRO_XRCE_AGENT_LIB_DIR="$XRCE_INSTALL/microxrcedds_agent/lib"
 ```
 
+## Docker Boundary
+
+The repo now includes a first-pass Docker layout around the runtime path contract:
+
+- `Dockerfile.dev`
+  - shared image for development and simulation entrypoints
+- `docker-compose.yml`
+  - `dev` service for build/tests/orchestrator work
+  - `sim` service for Gazebo/PX4 demo runs
+- `.env.docker.example`
+  - host-side bind mount variables
+- `scripts/docker/`
+  - helper scripts for image builds, a dev shell, tests, and the sim demo
+
+Container-internal paths are fixed and match the runtime env contract:
+
+- repo: `/workspace/ros2_ws_ai`
+- PX4 repo: `/workspace/PX4-Autopilot`
+- underlay install: `/workspace/underlay/install`
+- XRCE install: `/workspace/px4_ros_uxrce_dds_ws/install`
+
+Host-side mount sources are configured separately through:
+
+- `HOST_ROS2_WS_AI_ROOT`
+- `HOST_PX4_DIR`
+- `HOST_UNDERLAY_WS`
+- `HOST_UNDERLAY_INSTALL`
+- `HOST_XRCE_INSTALL`
+
+If the underlay was built with `colcon --symlink-install`, its package setup hooks may point back into the original host workspace with absolute paths. For that case the Compose file also supports:
+
+- `CONTAINER_UNDERLAY_WS`
+
+This should be set to the same absolute path that was embedded in the host underlay when it was built. On your current machine that path is `/home/shravan/Projects/ros2_ws`.
+
+Typical Docker workflow:
+
+```bash
+cp .env.docker.example .env
+docker compose build dev sim
+docker compose run --rm dev bash
+```
+
+Simulation workflow:
+
+```bash
+bash scripts/docker/run_sim_demo.sh
+```
+
+Notes:
+- `dev` is the default day-to-day environment.
+- `sim` mounts `/tmp/.X11-unix`; `scripts/docker/run_sim_demo.sh` also forwards `DISPLAY` and `XAUTHORITY` when available so Gazebo can open its GUI.
+- the Docker boundary is defined now, but the full Gazebo/PX4 runtime inside the container still needs live validation on your teammate's machine.
+
 ## Scope
 
 This workspace is currently validated for:

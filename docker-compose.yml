@@ -1,0 +1,87 @@
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      network: host
+    image: ros2-ws-ai:dev
+    user: "0:0"
+    working_dir: /workspace/ros2_ws_ai
+    network_mode: host
+    ipc: host
+    stdin_open: true
+    tty: true
+    environment:
+      ROS2_WS_AI_ROOT: /workspace/ros2_ws_ai
+      UNDERLAY_INSTALL: /workspace/underlay/install
+      PX4_DIR: /workspace/PX4-Autopilot
+      PX4_BIN: /workspace/PX4-Autopilot/build/px4_sitl_default/bin/px4
+      PX4_GZ_MODELS_PATH: /workspace/PX4-Autopilot/Tools/simulation/gz/models
+      PX4_GZ_WORLDS_PATH: /workspace/PX4-Autopilot/Tools/simulation/gz/worlds
+      XRCE_INSTALL: /workspace/px4_ros_uxrce_dds_ws/install
+      MICRO_XRCE_AGENT_BIN: /workspace/px4_ros_uxrce_dds_ws/install/microxrcedds_agent/bin/MicroXRCEAgent
+      MICRO_XRCE_AGENT_LIB_DIR: /workspace/px4_ros_uxrce_dds_ws/install/microxrcedds_agent/lib
+      HOME: /tmp/devhome
+      UV_CACHE_DIR: /tmp/uv-cache
+    volumes:
+      - ${HOST_ROS2_WS_AI_ROOT:-.}:/workspace/ros2_ws_ai
+      - ${HOST_PX4_DIR:-../PX4-Autopilot}:/workspace/PX4-Autopilot
+      - ${HOST_PX4_DIR:-../PX4-Autopilot}:${CONTAINER_PX4_COMPAT_DIR:-/home/shravan/Projects/PX4-Autopilot}
+      - ${HOST_UNDERLAY_INSTALL:-../ros2_ws/install}:/workspace/underlay/install:ro
+      - ${HOST_UNDERLAY_WS:-../ros2_ws}:${CONTAINER_UNDERLAY_WS:-/home/shravan/Projects/ros2_ws}:ro
+      - ${HOST_XRCE_INSTALL:-../px4_ros_uxrce_dds_ws/install}:/workspace/px4_ros_uxrce_dds_ws/install:ro
+      - ros2_ws_ai_build:/workspace/ros2_ws_ai/build
+      - ros2_ws_ai_install:/workspace/ros2_ws_ai/install
+      - ros2_ws_ai_log:/workspace/ros2_ws_ai/log
+      - ros2_ws_ai_home:/tmp/devhome
+      - ros2_ws_ai_uv_cache:/tmp/uv-cache
+
+  sim:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      network: host
+    image: ros2-ws-ai:dev
+    user: "0:0"
+    working_dir: /workspace/ros2_ws_ai
+    network_mode: host
+    ipc: host
+    stdin_open: true
+    tty: true
+    environment:
+      ROS2_WS_AI_ROOT: /workspace/ros2_ws_ai
+      UNDERLAY_INSTALL: /workspace/underlay/install
+      PX4_DIR: /workspace/PX4-Autopilot
+      PX4_BIN: /workspace/PX4-Autopilot/build/px4_sitl_default/bin/px4
+      PX4_GZ_MODELS_PATH: /workspace/PX4-Autopilot/Tools/simulation/gz/models
+      PX4_GZ_WORLDS_PATH: /workspace/PX4-Autopilot/Tools/simulation/gz/worlds
+      XRCE_INSTALL: /workspace/px4_ros_uxrce_dds_ws/install
+      MICRO_XRCE_AGENT_BIN: /workspace/px4_ros_uxrce_dds_ws/install/microxrcedds_agent/bin/MicroXRCEAgent
+      MICRO_XRCE_AGENT_LIB_DIR: /workspace/px4_ros_uxrce_dds_ws/install/microxrcedds_agent/lib
+      DISPLAY: "${DISPLAY:-}"
+      XAUTHORITY: /root/.Xauthority
+      QT_X11_NO_MITSHM: "1"
+      NVIDIA_VISIBLE_DEVICES: "${NVIDIA_VISIBLE_DEVICES:-all}"
+      NVIDIA_DRIVER_CAPABILITIES: "${NVIDIA_DRIVER_CAPABILITIES:-all}"
+      HOME: /tmp/devhome
+      UV_CACHE_DIR: /tmp/uv-cache
+    volumes:
+      - ${HOST_ROS2_WS_AI_ROOT:-.}:/workspace/ros2_ws_ai
+      - ${HOST_PX4_DIR:-../PX4-Autopilot}:/workspace/PX4-Autopilot
+      - ${HOST_PX4_DIR:-../PX4-Autopilot}:${CONTAINER_PX4_COMPAT_DIR:-/home/shravan/Projects/PX4-Autopilot}
+      - ${HOST_UNDERLAY_INSTALL:-../ros2_ws/install}:/workspace/underlay/install:ro
+      - ${HOST_UNDERLAY_WS:-../ros2_ws}:${CONTAINER_UNDERLAY_WS:-/home/shravan/Projects/ros2_ws}:ro
+      - ${HOST_XRCE_INSTALL:-../px4_ros_uxrce_dds_ws/install}:/workspace/px4_ros_uxrce_dds_ws/install:ro
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ros2_ws_ai_build:/workspace/ros2_ws_ai/build
+      - ros2_ws_ai_install:/workspace/ros2_ws_ai/install
+      - ros2_ws_ai_log:/workspace/ros2_ws_ai/log
+      - ros2_ws_ai_home:/tmp/devhome
+      - ros2_ws_ai_uv_cache:/tmp/uv-cache
+
+volumes:
+  ros2_ws_ai_build:
+  ros2_ws_ai_install:
+  ros2_ws_ai_log:
+  ros2_ws_ai_home:
+  ros2_ws_ai_uv_cache:

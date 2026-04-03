@@ -1,0 +1,17 @@
+ARG BASE_IMAGE=osrf/ros:jazzy-simulation
+FROM ${BASE_IMAGE}
+
+SHELL ["/bin/bash", "-lc"]
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+ENV UV_CACHE_DIR=/tmp/uv-cache
+
+COPY docker/ros_entrypoint.sh /usr/local/bin/ros2_ws_ai_entrypoint.sh
+RUN chmod +x /usr/local/bin/ros2_ws_ai_entrypoint.sh
+
+WORKDIR /workspace/ros2_ws_ai
+
+ENTRYPOINT ["/usr/local/bin/ros2_ws_ai_entrypoint.sh"]
+CMD ["bash"]
