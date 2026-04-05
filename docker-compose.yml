@@ -73,9 +73,34 @@ services:
       - ros2_ws_ai_home:/tmp/devhome
       - ros2_ws_ai_uv_cache:/tmp/uv-cache
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    network_mode: host
+    restart: always
+    volumes:
+      - ollama_data:/root/.ollama
+
+  ollama-pull:
+    image: curlimages/curl:latest
+    container_name: ollama-puller
+    network_mode: host
+    depends_on:
+      - ollama
+    entrypoint: [ "/bin/sh", "-c" ]
+    command: >
+      sh -c "
+      echo 'Waiting for Ollama to be ready...';
+      while ! curl -s http://localhost:11434/api/tags > /dev/null; do sleep 1; done;
+      echo 'Ollama ready. Pulling qwen3:1.7b model...';
+      curl -X POST http://localhost:11434/api/pull -d '{\"name\": \"qwen3:1.7b\"}';
+      echo 'Model pulled successfully.';
+      "
+
 volumes:
   ros2_ws_ai_build:
   ros2_ws_ai_install:
   ros2_ws_ai_log:
   ros2_ws_ai_home:
   ros2_ws_ai_uv_cache:
+  ollama_data:

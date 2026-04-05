@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=osrf/ros:jazzy-simulation
+ARG BASE_IMAGE=ros:jazzy-ros-base
 
 FROM ${BASE_IMAGE} AS base
 
@@ -31,6 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-wheel \
     software-properties-common \
     wget \
+    ros-jazzy-ros-gz \
     && rm -rf /var/lib/apt/lists/*
 
 COPY docker/ros_entrypoint.sh /usr/local/bin/ros2_ws_ai_entrypoint.sh
