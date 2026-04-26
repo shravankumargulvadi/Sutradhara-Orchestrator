@@ -138,6 +138,7 @@ This launches the `sim` service and:
 - starts PX4 SITL
 - starts `uav_manager`
 - starts `mission_control_node`
+- starts the ground rover ROS-Gazebo bridge
 
 If `DISPLAY` and `XAUTHORITY` are available, the script launches Gazebo with GUI support. Otherwise it falls back to headless mode.
 
