@@ -212,6 +212,12 @@
     </include>
 
     <include>
+      <uri>model://inspection_rover</uri>
+      <name>inspection_rover_01</name>
+      <pose>48 -38 0.05 0 0 1.5708</pose>
+    </include>
+
+    <include>
       <uri>model://inverter_pad</uri>
       <name>inverter_pad_01</name>
       <pose>52 8 0 0 0 1.5708</pose>
