@@ -38,16 +38,19 @@ def test_full_mission_lifecycle(mock_completion, tmp_path):
     # Mock Decomposition
     mock_decomp = MagicMock()
     mock_decomp.choices[0].message.content = """
-    [
-        {
-            "task_id": "task_1",
-            "task_type": 0,
-            "target": {"kind": 0, "points": [{"x": 10.0, "y": 10.0}]},
-            "constraints": {"require_sensors": ["RGB"]},
-            "priority": 100,
-            "dependencies": []
-        }
-    ]
+    {
+        "reasoning": "Inspect the requested point.",
+        "tasks": [
+            {
+                "task_id": "task_1",
+                "task_type": 0,
+                "target": {"kind": 0, "points": [{"x": 10.0, "y": 10.0}], "asset_id": "", "sector_id": ""},
+                "constraints": {"require_sensors": ["RGB"]},
+                "priority": 100,
+                "dependencies": []
+            }
+        ]
+    }
     """
     mock_decomp.usage.prompt_tokens = 10
     mock_decomp.usage.completion_tokens = 10

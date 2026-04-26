@@ -13,16 +13,20 @@ class TaskTarget:
     POINT: ClassVar[int] = 0
     REGION: ClassVar[int] = 1
     ASSET_ID: ClassVar[int] = 2
+    SECTOR_ID: ClassVar[int] = 3
 
     frame: str = "map"
     kind: int = 0
     points: List[Point2D] = field(default_factory=list)
     asset_id: str = ""
+    sector_id: str = ""
     def to_dict(self) -> dict:
         return {
+            "frame": self.frame,
             "kind": self.kind,
             "points": [{"x": p.x, "y": p.y, "z": p.z} for p in self.points],
-            "asset_id": self.asset_id
+            "asset_id": self.asset_id,
+            "sector_id": self.sector_id,
         }
 
 @dataclass

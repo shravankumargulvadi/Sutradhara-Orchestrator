@@ -1,0 +1,13 @@
+.git
+.env
+.pytest_cache
+.venv
+build
+install
+log
+test_logs
+__pycache__
+*.pyc
+*.pyo
+.DS_Store
+src/sutradhara_orchestrator/sutradhara_orchestrator.egg-info

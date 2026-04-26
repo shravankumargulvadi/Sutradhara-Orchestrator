@@ -1,0 +1,25 @@
+sectors:
+  - sector_id: sector_1
+    display_name: "West Solar Rows"
+    default_patrol_route: patrol_sector_1
+    assets:
+      - row_01
+      - row_06
+  - sector_id: sector_2
+    display_name: "East Solar Rows"
+    default_patrol_route: patrol_sector_2
+    assets:
+      - row_12
+  - sector_id: sector_3
+    display_name: "Inverter Yard"
+    default_patrol_route: patrol_sector_3
+    assets:
+      - inverter_01
+      - inverter_02
+  - sector_id: sector_4
+    display_name: "Battery and North Perimeter"
+    default_patrol_route: patrol_sector_4
+    assets:
+      - battery_container_01
+      - weather_station_01
+      - north_perimeter_gate

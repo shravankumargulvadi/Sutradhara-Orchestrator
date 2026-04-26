@@ -1,0 +1,50 @@
+assets:
+  - asset_id: row_01
+    type: solar_panel_row
+    pose: {x: -30.0, y: -32.0, z: 0.0, yaw_rad: 0.0}
+    inspection_points:
+      - {x: -40.0, y: -32.0, z: 12.0}
+      - {x: -20.0, y: -32.0, z: 12.0}
+  - asset_id: row_06
+    type: solar_panel_row
+    pose: {x: -30.0, y: 18.0, z: 0.0, yaw_rad: 0.06}
+    notes: "Slight tilt anomaly marker placed near this row."
+    inspection_points:
+      - {x: -40.0, y: 18.0, z: 12.0}
+      - {x: -20.0, y: 18.0, z: 12.0}
+  - asset_id: row_12
+    type: solar_panel_row
+    pose: {x: 14.0, y: -2.0, z: 0.0, yaw_rad: 0.0}
+    inspection_points:
+      - {x: 4.0, y: -2.0, z: 12.0}
+      - {x: 24.0, y: -2.0, z: 12.0}
+  - asset_id: inverter_01
+    type: inverter_pad
+    pose: {x: 52.0, y: 8.0, z: 0.0, yaw_rad: 1.5708}
+    inspection_points:
+      - {x: 40.0, y: 8.0, z: 10.0}
+      - {x: 52.0, y: 0.0, z: 8.0}
+  - asset_id: inverter_02
+    type: inverter_pad
+    pose: {x: 52.0, y: -12.0, z: 0.0, yaw_rad: 1.5708}
+    inspection_points:
+      - {x: 40.0, y: -12.0, z: 10.0}
+      - {x: 52.0, y: -20.0, z: 8.0}
+  - asset_id: battery_container_01
+    type: battery_container
+    pose: {x: 52.0, y: 30.0, z: 0.0, yaw_rad: 1.5708}
+    notes: "Thermal alert stripe on east wall."
+    inspection_points:
+      - {x: 40.0, y: 30.0, z: 9.0}
+      - {x: 57.0, y: 30.0, z: 7.0}
+  - asset_id: weather_station_01
+    type: weather_station
+    pose: {x: -54.0, y: 50.0, z: 0.0, yaw_rad: 0.0}
+    inspection_points:
+      - {x: -48.0, y: 44.0, z: 10.0}
+  - asset_id: north_perimeter_gate
+    type: gate_zone
+    pose: {x: 0.0, y: 60.0, z: 0.0, yaw_rad: 0.0}
+    inspection_points:
+      - {x: -8.0, y: 52.0, z: 14.0}
+      - {x: 8.0, y: 52.0, z: 14.0}

@@ -1,0 +1,57 @@
+<?xml version="1.0" ?>
+<sdf version="1.9">
+  <model name="weather_station">
+    <static>true</static>
+    <link name="station_link">
+      <collision name="mast_collision">
+        <pose>0 0 2.4 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.08</radius>
+            <length>4.8</length>
+          </cylinder>
+        </geometry>
+      </collision>
+
+      <visual name="mast_visual">
+        <pose>0 0 2.4 0 0 0</pose>
+        <geometry>
+          <cylinder>
+            <radius>0.08</radius>
+            <length>4.8</length>
+          </cylinder>
+        </geometry>
+        <material>
+          <ambient>0.70 0.70 0.71 1</ambient>
+          <diffuse>0.82 0.82 0.83 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name="sensor_head">
+        <pose>0 0 4.95 0 0 0</pose>
+        <geometry>
+          <sphere>
+            <radius>0.25</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <ambient>0.94 0.94 0.94 1</ambient>
+          <diffuse>0.98 0.98 0.98 1</diffuse>
+        </material>
+      </visual>
+
+      <visual name="cross_arm">
+        <pose>0 0 4.2 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>1.4 0.08 0.08</size>
+          </box>
+        </geometry>
+        <material>
+          <ambient>0.78 0.78 0.80 1</ambient>
+          <diffuse>0.88 0.88 0.90 1</diffuse>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

@@ -2,12 +2,15 @@
 
 set -euo pipefail
 
-WORKSPACE_DIR="/home/shravan/Projects/ros2_ws_ai"
-UNDERLAY_DIR="/home/shravan/Projects/ros2_ws"
-XRCE_WS_DIR="/home/shravan/Projects/px4_ros_uxrce_dds_ws"
-PX4_DIR="/home/shravan/Projects/PX4-Autopilot"
-PX4_BIN="$PX4_DIR/build/px4_sitl_default/bin/px4"
-MICRO_XRCE_AGENT_BIN_DEFAULT="$XRCE_WS_DIR/install/microxrcedds_agent/bin/MicroXRCEAgent"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_DIR="${ROS2_WS_AI_ROOT:-$(cd "$SCRIPT_DIR/.." && pwd)}"
+UNDERLAY_INSTALL="${UNDERLAY_INSTALL:-/opt/underlay_ws/install}"
+XRCE_INSTALL="${XRCE_INSTALL:-/opt/xrce_ws/install}"
+PX4_DIR="${PX4_DIR:-/opt/px4}"
+PX4_BIN="${PX4_BIN:-$PX4_DIR/build/px4_sitl_default/bin/px4}"
+PX4_DATA_PATH="${PX4_DATA_PATH:-$PX4_DIR/build/px4_sitl_default/etc}"
+PX4_ROOTFS_BASE="${PX4_ROOTFS_BASE:-$PX4_DIR/build/px4_sitl_default/rootfs}"
+MICRO_XRCE_AGENT_BIN_DEFAULT="${MICRO_XRCE_AGENT_BIN:-$XRCE_INSTALL/microxrcedds_agent/bin/MicroXRCEAgent}"
 
 FLIGHT_ALTITUDE_M="${FLIGHT_ALTITUDE_M:-8.0}"
 WAIT_FOR_TOPICS_SEC="${WAIT_FOR_TOPICS_SEC:-60}"
@@ -147,9 +150,11 @@ fi
 mkdir -p "$LOG_ROOT"
 
 source_setup /opt/ros/jazzy/setup.bash
-source_setup "$UNDERLAY_DIR/install/setup.bash"
+source_setup "$UNDERLAY_INSTALL/setup.bash"
 source_setup "$WORKSPACE_DIR/install/setup.bash"
-source_setup "$XRCE_WS_DIR/install/setup.bash"
+if [[ -f "$XRCE_INSTALL/setup.bash" ]]; then
+  source_setup "$XRCE_INSTALL/setup.bash"
+fi
 
 if ! MICRO_XRCE_AGENT_BIN="$(resolve_micro_xrce_agent)"; then
   echo "Could not find MicroXRCEAgent in $MICRO_XRCE_AGENT_BIN_DEFAULT or on PATH" >&2
@@ -164,12 +169,12 @@ start_bg "MicroXRCEAgent" "$LOG_ROOT/xrce_agent.log" \
   "$MICRO_XRCE_AGENT_BIN" udp4 -p 8888
 
 start_bg "PX4 UAV 1" "$LOG_ROOT/px4_uav1.log" \
-  env PX4_SYS_AUTOSTART="$PX4_AUTOSTART" PX4_SIM_MODEL=gz_x500 "$PX4_BIN" -i 1
+  env PX4_SYS_AUTOSTART="$PX4_AUTOSTART" PX4_SIM_MODEL=gz_x500 "$PX4_BIN" "$PX4_DATA_PATH" -i 1 -w "$PX4_ROOTFS_BASE/1"
 
 sleep 8
 
 start_bg "PX4 UAV 2" "$LOG_ROOT/px4_uav2.log" \
-  env PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART="$PX4_AUTOSTART" PX4_GZ_MODEL_POSE="$UAV2_MODEL_POSE" PX4_SIM_MODEL=gz_x500 "$PX4_BIN" -i 2
+  env PX4_GZ_STANDALONE=1 PX4_SYS_AUTOSTART="$PX4_AUTOSTART" PX4_GZ_MODEL_POSE="$UAV2_MODEL_POSE" PX4_SIM_MODEL=gz_x500 "$PX4_BIN" "$PX4_DATA_PATH" -i 2 -w "$PX4_ROOTFS_BASE/2"
 
 echo "Waiting for PX4 topics..."
 wait_for_topic "/px4_1/fmu/out/vehicle_status" "$WAIT_FOR_TOPICS_SEC"
