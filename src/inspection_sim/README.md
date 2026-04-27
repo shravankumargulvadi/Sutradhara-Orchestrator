@@ -219,6 +219,26 @@ It starts the stack in this order:
 
 The launch file does not vendor PX4 into this package. It resolves PX4, the `px4_msgs` underlay, and the XRCE agent from the runtime environment.
 
+[`launch/inspection_multi_robot_demo.launch.py`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/launch/inspection_multi_robot_demo.launch.py) is the repo-owned launch entrypoint for the combined UAV and ground inspection rover demo.
+
+It starts:
+
+- Gazebo with the solar farm world and `inspection_rover_01`
+- PX4 SITL, `MicroXRCEAgent`, `uav_manager`, and `mission_control_node` for `x500_1`
+- `ros_gz_bridge parameter_bridge` for the rover command and sensor topics
+- `ground_robot_manager` for rover capability and state publication
+
+The rover is a primitive differential-drive SDF model in [`models/inspection_rover/model.sdf`](/home/shravan/Projects/ros2_ws_ai/src/inspection_sim/models/inspection_rover/model.sdf). It is intentionally repo-local so the demo does not depend on downloaded meshes or external model servers.
+
+Rover ROS topics exposed by the bridge:
+
+- `/ugv_1/cmd_vel` (`geometry_msgs/msg/Twist`)
+- `/ugv_1/odom` (`nav_msgs/msg/Odometry`)
+- `/ugv_1/scan` (`sensor_msgs/msg/LaserScan`)
+- `/ugv_1/camera/image_raw` (`sensor_msgs/msg/Image`)
+- `/ugv_1/depth/image_raw` (`sensor_msgs/msg/Image`)
+- `/ugv_1/imu` (`sensor_msgs/msg/Imu`)
+
 That means the same launch file works in both modes:
 
 - Docker/self-contained image
@@ -298,12 +318,94 @@ source "$ROS2_WS_AI_ROOT/install/setup.bash"
 ros2 launch inspection_sim inspection_uav_demo.launch.py
 ```
 
+Run the combined UAV and ground rover demo:
+
+```bash
+cd "$ROS2_WS_AI_ROOT"
+source /opt/ros/jazzy/setup.bash
+source "$ROS2_WS_AI_ROOT/install/setup.bash"
+ros2 launch inspection_sim inspection_multi_robot_demo.launch.py
+```
+
+In another terminal, command the rover forward:
+
+```bash
+cd "$ROS2_WS_AI_ROOT"
+source /opt/ros/jazzy/setup.bash
+source "$ROS2_WS_AI_ROOT/install/setup.bash"
+ros2 topic pub --once /ugv_1/cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.6}, angular: {z: 0.0}}"
+```
+
+Turn the rover in place:
+
+```bash
+ros2 topic pub --once /ugv_1/cmd_vel geometry_msgs/msg/Twist "{linear: {x: 0.0}, angular: {z: 0.6}}"
+```
+
+Confirm bridged rover topics:
+
+```bash
+ros2 topic list | grep /ugv_1
+ros2 topic echo --once /ugv_1/odom
+ros2 topic echo --once /ugv_1/scan
+```
+
+Confirm the rover is visible to the orchestrator-facing robot registry:
+
+```bash
+ros2 topic echo --once /orchestrator/capability_profile
+ros2 topic echo --once /orchestrator/robot_state
+```
+
+Expected streams include both `px4_1` from `uav_manager` and `ugv_1` from `ground_robot_manager`.
+
+`ground_robot_manager` also accepts orchestrator `ASSIGN` commands for `ugv_1` on `/orchestrator/task_command`. The initial implementation supports point/region waypoint lists and sector patrol tasks by resolving the configured sector route and following the route on the ground with `/ugv_1/cmd_vel`. It publishes task acceptance on `/orchestrator/task_ack` and progress/completion on `/orchestrator/task_update`.
+
+Send a direct sector patrol task to the rover:
+
+```bash
+ros2 topic pub --once /orchestrator/task_command robot_control_interfaces/msg/TaskCommand "{
+  mission_id: 'manual_ugv_patrol',
+  task_id: 'ugv_patrol_sector_3',
+  command_id: 'cmd_ugv_patrol_sector_3',
+  robot_id: 'ugv_1',
+  type: 0,
+  priority: 80,
+  task: {
+    task_type: 3,
+    target: {
+      frame: 'map',
+      kind: 3,
+      points: [],
+      asset_id: '',
+      sector_id: 'sector_3'
+    },
+    constraints: {
+      safety_radius_m: 0.0,
+      min_battery_pct_to_start: 10.0,
+      require_sensors: []
+    },
+    success_criteria: {
+      criteria: ['GROUND_PATROL_COMPLETE']
+    }
+  }
+}"
+```
+
+Watch the rover task feedback:
+
+```bash
+ros2 topic echo /orchestrator/task_ack
+ros2 topic echo /orchestrator/task_update
+```
+
 Useful launch arguments:
 
 ```bash
 ros2 launch inspection_sim inspection_uav_demo.launch.py flight_altitude_m:=10.0
 ros2 launch inspection_sim inspection_uav_demo.launch.py gz_model_pose:="0,0,0.2,0,0,0"
 ros2 launch inspection_sim inspection_uav_demo.launch.py px4_dir:="$PX4_DIR"
+ros2 launch inspection_sim inspection_multi_robot_demo.launch.py headless:=false
 ```
 
 ## End-To-End Patrol Demo
@@ -389,7 +491,7 @@ Expected behavior:
 
 If you are not using Docker, the same flow still works with the local host setup:
 
-1. launch `inspection_uav_demo.launch.py`
+1. launch `inspection_multi_robot_demo.launch.py`
 2. run `uv run python -m sutradhara_orchestrator.cli ros-bridge`
 3. publish `/orchestrator/mission_input`
 
