@@ -142,6 +142,17 @@ def generate_launch_description() -> LaunchDescription:
                 arguments=rover_bridge_arguments,
                 output="screen",
             ),
+            Node(
+                package="robot_control",
+                executable="ground_robot_manager",
+                output="screen",
+                parameters=[
+                    {
+                        "robot_id": "ugv_1",
+                        "odom_topic": "/ugv_1/odom",
+                    }
+                ],
+            ),
             ExecuteProcess(
                 cmd=[micro_xrce_agent_bin, "udp4", "-p", "8888"],
                 output="screen",
