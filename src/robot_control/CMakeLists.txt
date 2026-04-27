@@ -18,6 +18,7 @@ find_package(ament_cmake_gtest REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(px4_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 find_package(robot_control_interfaces REQUIRED)
 find_package(yaml-cpp REQUIRED)
@@ -37,6 +38,20 @@ ament_target_dependencies(uav_manager
 
 target_link_libraries(uav_manager
   yaml-cpp::yaml-cpp
+)
+
+add_executable(ground_robot_manager src/ground_robot_manager.cpp)
+
+ament_target_dependencies(ground_robot_manager
+  ament_index_cpp
+  rclcpp
+  geometry_msgs
+  nav_msgs
+  robot_control_interfaces
+)
+
+target_link_libraries(ground_robot_manager
+  sector_route_registry_lib
 )
 
 add_library(sector_route_registry_lib src/sector_route_registry.cpp)
@@ -84,6 +99,7 @@ install(TARGETS
   mission_control_node_lib
   sector_route_registry_lib
   uav_manager
+  ground_robot_manager
   mission_control_node
   DESTINATION lib/${PROJECT_NAME}
 )

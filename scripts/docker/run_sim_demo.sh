@@ -48,5 +48,5 @@ fi
 
 docker compose "${run_args[@]}" sim bash -lc "
   cd \"\$ROS2_WS_AI_ROOT\" &&
-  ros2 launch inspection_sim inspection_uav_demo.launch.py ${launch_args[*]:-}
+  ros2 launch inspection_sim inspection_multi_robot_demo.launch.py ${launch_args[*]:-}
 "

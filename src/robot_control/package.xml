@@ -13,6 +13,7 @@
   <depend>rclcpp</depend>
   <depend>px4_msgs</depend>  <!-- Declare px4_msgs as a dependency -->
   <depend>geometry_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>std_msgs</depend>
   <depend>robot_control_interfaces</depend>
   <depend>yaml-cpp</depend>
