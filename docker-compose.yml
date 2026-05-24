@@ -73,6 +73,41 @@ services:
       - ros2_ws_ai_home:/tmp/devhome
       - ros2_ws_ai_uv_cache:/tmp/uv-cache
 
+  sim-vnc:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      target: runtime
+      network: host
+    image: ros2-ws-ai:dev
+    user: "0:0"
+    working_dir: /workspace/ros2_ws_ai
+    network_mode: bridge
+    ipc: host
+    stdin_open: true
+    tty: true
+    ports:
+      - "6080:6080"
+    environment:
+      ROS2_WS_AI_ROOT: /workspace/ros2_ws_ai
+      UNDERLAY_INSTALL: /opt/underlay_ws/install
+      PX4_DIR: /opt/px4
+      PX4_BIN: /opt/px4/build/px4_sitl_default/bin/px4
+      PX4_ROOTFS_BASE: /opt/px4/build/px4_sitl_default/rootfs
+      PX4_GZ_MODELS_PATH: /opt/px4/Tools/simulation/gz/models
+      PX4_GZ_WORLDS_PATH: /opt/px4/Tools/simulation/gz/worlds
+      XRCE_INSTALL: /opt/xrce_ws/install
+      MICRO_XRCE_AGENT_BIN: /opt/xrce_ws/install/microxrcedds_agent/bin/MicroXRCEAgent
+      MICRO_XRCE_AGENT_LIB_DIR: /opt/xrce_ws/install/microxrcedds_agent/lib
+      DISPLAY: ":99"
+      HOME: /tmp/devhome
+      UV_CACHE_DIR: /tmp/uv-cache
+      PYTHONPATH: /workspace/ros2_ws_ai/src/sutradhara_orchestrator
+      AUTO_SOURCE_WORKSPACE_INSTALL: "1"
+    volumes:
+      - ros2_ws_ai_home:/tmp/devhome
+      - ros2_ws_ai_uv_cache:/tmp/uv-cache
+
   ollama:
     image: ollama/ollama:latest
     container_name: ollama
