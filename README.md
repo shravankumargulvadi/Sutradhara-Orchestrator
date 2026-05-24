@@ -102,7 +102,7 @@ Compose services:
 ```bash
 cd /home/shravan/Projects/ros2_ws_ai
 cp .env.docker.example .env
-docker compose build dev sim
+docker compose build dev sim sim-vnc
 ```
 
 ### Open a development shell
@@ -121,6 +121,23 @@ source /opt/ros/jazzy/setup.bash
 source $UNDERLAY_INSTALL/setup.bash
 source install/setup.bash
 ```
+
+### Run the simulation with browser-based GUI (Mac / Windows / Linux)
+
+This uses a VNC server inside the container so Gazebo is visible from any browser — no X11 or XQuartz needed.
+
+```bash
+cd /home/shravan/Projects/ros2_ws_ai
+bash scripts/docker/run_sim_vnc.sh
+```
+
+Then open **http://localhost:6080/vnc.html** in your browser. Gazebo will appear once the stack finishes launching.
+
+How it works inside the container:
+
+- `Xvfb :99` — virtual framebuffer (the "screen" Gazebo renders to)
+- `x11vnc` — VNC server reading from that framebuffer
+- `websockify` + noVNC — bridges VNC over WebSocket so any browser can connect
 
 ### Run the simulation stack
 
@@ -183,6 +200,7 @@ The repeated publish is deliberate. Across short-lived containers, it is more re
 - [scripts/docker/dev_shell.sh](/home/shravan/Projects/ros2_ws_ai/scripts/docker/dev_shell.sh)
 - [scripts/docker/run_tests.sh](/home/shravan/Projects/ros2_ws_ai/scripts/docker/run_tests.sh)
 - [scripts/docker/run_sim_demo.sh](/home/shravan/Projects/ros2_ws_ai/scripts/docker/run_sim_demo.sh)
+- [scripts/docker/run_sim_vnc.sh](/home/shravan/Projects/ros2_ws_ai/scripts/docker/run_sim_vnc.sh)
 
 ## Local Non-Docker Workflow
 
@@ -301,10 +319,12 @@ For local non-Docker development, `uv run ...` remains the intended Python workf
   Start the bridge first, then publish with `-r 1 -t 5` instead of `--once`.
 
 - Gazebo GUI does not open in Docker:
-  Make sure the host has valid `DISPLAY` and `XAUTHORITY` and launch via `bash scripts/docker/run_sim_demo.sh`.
+  On Mac/Windows use `bash scripts/docker/run_sim_vnc.sh` and open `http://localhost:6080/vnc.html`.
+  On Linux with a display, use `bash scripts/docker/run_sim_demo.sh`.
 
 - Gazebo GUI is very laggy in Docker:
   This is usually X11/container rendering overhead or incomplete GPU acceleration inside the container.
+  With VNC, reducing the Xvfb resolution in `run_sim_vnc.sh` (e.g. `1280x720x24`) can help.
 
 - `robot_control` build fails locally with missing `px4_msgs`:
   You did not source the local underlay before building or running.

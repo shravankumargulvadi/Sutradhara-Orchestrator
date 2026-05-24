@@ -32,6 +32,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common \
     wget \
     ros-jazzy-ros-gz \
+    x11vnc \
+    xvfb \
+    novnc \
+    websockify \
     && rm -rf /var/lib/apt/lists/*
 
 COPY docker/ros_entrypoint.sh /usr/local/bin/ros2_ws_ai_entrypoint.sh
